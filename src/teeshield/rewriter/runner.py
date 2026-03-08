@@ -123,7 +123,7 @@ def _find_similar_tools(name: str, all_tools: list[dict]) -> list[str]:
     if len(all_word_sets) >= 3:
         from collections import Counter
         word_freq = Counter(w for ws in all_word_sets for w in ws)
-        threshold = len(all_tools) * 0.5
+        threshold = len(all_tools) * 0.3
         common_words = {w for w, c in word_freq.items() if c >= threshold}
     else:
         common_words = set()
