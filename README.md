@@ -172,10 +172,10 @@ Add TeeShield to your CI pipeline:
 TeeShield is a **static analysis linter**, not a runtime sandbox.
 
 **What it catches:**
-- Vague or missing tool descriptions that cause agents to misuse tools
-- Missing input validation (path traversal, SQL injection, SSRF)
-- Unbounded query results that blow up agent context windows
-- Credential handling without secret managers
+- Ambiguous tool definitions that lead to agent misuse
+- Missing side-effect declarations (writes, deletes, network calls)
+- Unsafe permission patterns (unbounded file access, unrestricted queries)
+- Vague descriptions that give agents no operational boundaries
 
 **What it does NOT do:**
 - Runtime isolation or sandboxing
