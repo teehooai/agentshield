@@ -28,17 +28,21 @@ def scan(target: str, output: str | None, fmt: str):
 
 @main.command()
 @click.argument("server_path")
-@click.option("--model", default="claude-sonnet-4-20250514", help="Model for rewriting")
+@click.option("--model", default="claude-sonnet-4-20250514", help="Model for rewriting (if API key set)")
 @click.option("--dry-run", is_flag=True, help="Preview changes without writing")
-def rewrite(server_path: str, model: str, dry_run: bool):
+@click.option("--output", "-o", default=None, help="Save rewrites to JSON file")
+def rewrite(server_path: str, model: str, dry_run: bool, output: str | None):
     """Rewrite tool descriptions for LLM-optimized selection.
 
     Transforms API-doc-style descriptions into action-oriented,
     scenario-triggered descriptions that agents can use effectively.
+
+    Uses template-based rewriting by default. Set ANTHROPIC_API_KEY
+    for higher-quality LLM-powered rewrites.
     """
     from agentshield.rewriter.runner import run_rewrite
 
-    run_rewrite(server_path, model=model, dry_run=dry_run)
+    run_rewrite(server_path, model=model, dry_run=dry_run, output_path=output)
 
 
 @main.command()
