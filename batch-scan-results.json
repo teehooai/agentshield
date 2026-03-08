@@ -1,0 +1,970 @@
+[
+  {
+    "target": "test-targets/mcp-official/src/filesystem",
+    "license": "MIT",
+    "license_ok": true,
+    "tool_count": 14,
+    "tool_names": [
+      "read_file",
+      "read_text_file",
+      "read_media_file",
+      "read_multiple_files",
+      "write_file",
+      "edit_file",
+      "create_directory",
+      "list_directory",
+      "list_directory_with_sizes",
+      "directory_tree",
+      "move_file",
+      "search_files",
+      "get_file_info",
+      "list_allowed_directories"
+    ],
+    "security_score": 10.0,
+    "security_issues": [],
+    "description_score": 3.2,
+    "tool_scores": [
+      {
+        "tool_name": "read_file",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.23,
+        "overall_score": 2.0,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "read_text_file",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": true,
+        "disambiguation_score": 0.23,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "read_media_file",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "read_multiple_files",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "write_file",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "edit_file",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "create_directory",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "list_directory",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.06,
+        "overall_score": 1.6,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "list_directory_with_sizes",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.06,
+        "overall_score": 1.6,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "directory_tree",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "move_file",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": true,
+        "disambiguation_score": 1.0,
+        "overall_score": 5.0,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "search_files",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "get_file_info",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "list_allowed_directories",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      }
+    ],
+    "architecture_score": 10.0,
+    "has_tests": true,
+    "has_error_handling": true,
+    "overall_score": 7.6,
+    "improvement_potential": 2.4,
+    "rating": "B",
+    "recommendations": [
+      "Run `agentshield rewrite` to optimize tool descriptions for LLMs"
+    ],
+    "short_name": "filesystem"
+  },
+  {
+    "target": "test-targets/mcp-official/src/memory",
+    "license": "MIT",
+    "license_ok": true,
+    "tool_count": 9,
+    "tool_names": [
+      "create_entities",
+      "create_relations",
+      "add_observations",
+      "delete_entities",
+      "delete_observations",
+      "delete_relations",
+      "read_graph",
+      "search_nodes",
+      "open_nodes"
+    ],
+    "security_score": 10.0,
+    "security_issues": [],
+    "description_score": 2.3,
+    "tool_scores": [
+      {
+        "tool_name": "create_entities",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.12,
+        "overall_score": 1.8,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "create_relations",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.12,
+        "overall_score": 1.8,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "add_observations",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 2.0,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "delete_entities",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.0,
+        "overall_score": 1.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "delete_observations",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.29,
+        "overall_score": 2.1,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "delete_relations",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.0,
+        "overall_score": 1.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "read_graph",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 2.9,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "search_nodes",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "open_nodes",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      }
+    ],
+    "architecture_score": 10.0,
+    "has_tests": true,
+    "has_error_handling": true,
+    "overall_score": 7.3,
+    "improvement_potential": 2.7,
+    "rating": "B",
+    "recommendations": [
+      "Run `agentshield rewrite` to optimize tool descriptions for LLMs"
+    ],
+    "short_name": "memory"
+  },
+  {
+    "target": "test-targets/mcp-official/src/git",
+    "license": "MIT",
+    "license_ok": true,
+    "tool_count": 12,
+    "tool_names": [
+      "git_status",
+      "git_diff_unstaged",
+      "git_diff_staged",
+      "git_diff",
+      "git_commit",
+      "git_add",
+      "git_reset",
+      "git_log",
+      "git_create_branch",
+      "git_checkout",
+      "git_show",
+      "git_branch"
+    ],
+    "security_score": 10.0,
+    "security_issues": [],
+    "description_score": 2.4,
+    "tool_scores": [
+      {
+        "tool_name": "git_status",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 2.9,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "git_diff_unstaged",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.29,
+        "overall_score": 2.1,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "git_diff_staged",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.29,
+        "overall_score": 1.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "git_diff",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 2.9,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "git_commit",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 2.9,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "git_add",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 2.9,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "git_reset",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 2.9,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "git_log",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 1.4,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "git_create_branch",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 2.9,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "git_checkout",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 2.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "git_show",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 1.4,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "git_branch",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 2.5,
+        "suggested_rewrite": null
+      }
+    ],
+    "architecture_score": 10.0,
+    "has_tests": true,
+    "has_error_handling": true,
+    "overall_score": 7.3,
+    "improvement_potential": 2.7,
+    "rating": "B",
+    "recommendations": [
+      "Run `agentshield rewrite` to optimize tool descriptions for LLMs"
+    ],
+    "short_name": "git"
+  },
+  {
+    "target": "test-targets/mcp-official/src/fetch",
+    "license": "MIT",
+    "license_ok": true,
+    "tool_count": 1,
+    "tool_names": [
+      "fetch"
+    ],
+    "security_score": 9.0,
+    "security_issues": [
+      {
+        "severity": "medium",
+        "category": "ssrf",
+        "file": "src\\mcp_server_fetch\\server.py",
+        "line": 99,
+        "description": "Potential SSRF -- unrestricted network requests with \nuser-controlled URLs",
+        "fix_suggestion": "Validate URLs against an allowlist of permitted \ndomains"
+      }
+    ],
+    "description_score": 3.5,
+    "tool_scores": [
+      {
+        "tool_name": "fetch",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      }
+    ],
+    "architecture_score": 10.0,
+    "has_tests": true,
+    "has_error_handling": true,
+    "overall_score": 7.3,
+    "improvement_potential": 2.7,
+    "rating": "B",
+    "recommendations": [
+      "Run `agentshield rewrite` to optimize tool descriptions for LLMs"
+    ],
+    "short_name": "fetch"
+  },
+  {
+    "target": "test-targets/mcp-official/src/time",
+    "license": "MIT",
+    "license_ok": true,
+    "tool_count": 0,
+    "tool_names": [],
+    "security_score": 10.0,
+    "security_issues": [],
+    "description_score": 5.0,
+    "tool_scores": [],
+    "architecture_score": 10.0,
+    "has_tests": true,
+    "has_error_handling": true,
+    "overall_score": 8.2,
+    "improvement_potential": 1.8,
+    "rating": "A",
+    "recommendations": [
+      "Run `agentshield rewrite` to optimize tool descriptions for LLMs"
+    ],
+    "short_name": "time"
+  },
+  {
+    "target": "test-targets/mcp-python-sdk/examples/servers/everything-server",
+    "license": "MIT",
+    "license_ok": true,
+    "tool_count": 13,
+    "tool_names": [
+      "test_simple_text",
+      "test_image_content",
+      "test_audio_content",
+      "test_embedded_resource",
+      "test_multiple_content_types",
+      "test_tool_with_logging",
+      "test_tool_with_progress",
+      "test_sampling",
+      "test_elicitation",
+      "test_elicitation_sep1034_defaults",
+      "test_elicitation_sep1330_enums",
+      "test_error_handling",
+      "test_reconnection"
+    ],
+    "security_score": 10.0,
+    "security_issues": [],
+    "description_score": 2.8,
+    "tool_scores": [
+      {
+        "tool_name": "test_simple_text",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 1.4,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "test_image_content",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 1.4,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "test_audio_content",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 1.4,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "test_embedded_resource",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 1.4,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "test_multiple_content_types",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 2.0,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "test_tool_with_logging",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "test_tool_with_progress",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 2.9,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "test_sampling",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "test_elicitation",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "test_elicitation_sep1034_defaults",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "test_elicitation_sep1330_enums",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "test_error_handling",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": true,
+        "disambiguation_score": 1.0,
+        "overall_score": 4.4,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "test_reconnection",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      }
+    ],
+    "architecture_score": 7.0,
+    "has_tests": false,
+    "has_error_handling": true,
+    "overall_score": 6.7,
+    "improvement_potential": 3.3,
+    "rating": "B",
+    "recommendations": [
+      "Run `agentshield rewrite` to optimize tool descriptions for LLMs",
+      "Add automated tests for reliability"
+    ],
+    "short_name": "everything"
+  },
+  {
+    "target": "test-targets/supabase-mcp/packages/mcp-server-supabase",
+    "license": "Apache-2.0",
+    "license_ok": true,
+    "tool_count": 30,
+    "tool_names": [
+      "list_organizations",
+      "get_organization",
+      "list_projects",
+      "get_project",
+      "get_cost",
+      "confirm_cost",
+      "create_project",
+      "pause_project",
+      "restore_project",
+      "create_branch",
+      "list_branches",
+      "delete_branch",
+      "merge_branch",
+      "reset_branch",
+      "rebase_branch",
+      "list_tables",
+      "list_extensions",
+      "list_migrations",
+      "apply_migration",
+      "execute_sql",
+      "get_logs",
+      "get_advisors",
+      "get_project_url",
+      "get_publishable_keys",
+      "generate_typescript_types",
+      "list_edge_functions",
+      "get_edge_function",
+      "list_storage_buckets",
+      "get_storage_config",
+      "update_storage_config"
+    ],
+    "security_score": 9.0,
+    "security_issues": [
+      {
+        "severity": "medium",
+        "category": "ssrf",
+        "file": "src\\content-api\\graphql.ts",
+        "line": 174,
+        "description": "Potential SSRF -- unrestricted network requests with \nuser-controlled URLs",
+        "fix_suggestion": "Validate URLs against an allowlist of permitted \ndomains"
+      }
+    ],
+    "description_score": 2.3,
+    "tool_scores": [
+      {
+        "tool_name": "list_organizations",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "get_organization",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "list_projects",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "get_project",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.17,
+        "overall_score": 1.2,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "get_cost",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "confirm_cost",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "create_project",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 2.0,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "pause_project",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 1.4,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "restore_project",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 1.4,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "create_branch",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 2.0,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "list_branches",
+        "has_scenario_trigger": false,
+        "has_param_examples": true,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 4.0,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "delete_branch",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 1.4,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "merge_branch",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.36,
+        "overall_score": 2.2,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "reset_branch",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 2.0,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "rebase_branch",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.36,
+        "overall_score": 2.2,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "list_tables",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "list_extensions",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.17,
+        "overall_score": 1.2,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "list_migrations",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.17,
+        "overall_score": 1.2,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "apply_migration",
+        "has_scenario_trigger": true,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 6.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "execute_sql",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 3.5,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "get_logs",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.33,
+        "overall_score": 2.2,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "get_advisors",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.14,
+        "overall_score": 1.8,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "get_project_url",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.14,
+        "overall_score": 1.2,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "get_publishable_keys",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.29,
+        "overall_score": 2.1,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "generate_typescript_types",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 1.0,
+        "overall_score": 2.9,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "list_edge_functions",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 1.4,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "get_edge_function",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 2.0,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "list_storage_buckets",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.25,
+        "overall_score": 1.4,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "get_storage_config",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.12,
+        "overall_score": 1.1,
+        "suggested_rewrite": null
+      },
+      {
+        "tool_name": "update_storage_config",
+        "has_scenario_trigger": false,
+        "has_param_examples": false,
+        "has_error_guidance": false,
+        "disambiguation_score": 0.12,
+        "overall_score": 1.1,
+        "suggested_rewrite": null
+      }
+    ],
+    "architecture_score": 8.0,
+    "has_tests": true,
+    "has_error_handling": true,
+    "overall_score": 6.4,
+    "improvement_potential": 3.6,
+    "rating": "B",
+    "recommendations": [
+      "Run `agentshield rewrite` to optimize tool descriptions for LLMs"
+    ],
+    "short_name": "supabase"
+  }
+]

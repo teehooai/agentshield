@@ -1,4 +1,4 @@
-"""AgentShield CLI — four core commands."""
+"""TeeShield CLI — four core commands."""
 
 import click
 from rich.console import Console
@@ -9,7 +9,7 @@ console = Console()
 @click.group()
 @click.version_option()
 def main():
-    """AgentShield — Scan, improve, and certify MCP servers."""
+    """TeeShield — Scan, improve, and certify MCP servers."""
 
 
 @main.command()
@@ -21,7 +21,7 @@ def scan(target: str, output: str | None, fmt: str):
 
     TARGET can be a GitHub repo URL or a local directory path.
     """
-    from agentshield.scanner.runner import run_scan
+    from teeshield.scanner.runner import run_scan
 
     run_scan(target, output_path=output, output_format=fmt)
 
@@ -40,7 +40,7 @@ def rewrite(server_path: str, model: str, dry_run: bool, output: str | None):
     Uses template-based rewriting by default. Set ANTHROPIC_API_KEY
     for higher-quality LLM-powered rewrites.
     """
-    from agentshield.rewriter.runner import run_rewrite
+    from teeshield.rewriter.runner import run_rewrite
 
     run_rewrite(server_path, model=model, dry_run=dry_run, output_path=output)
 
@@ -56,7 +56,7 @@ def harden(server_path: str, read_only: bool, truncate_limit: int, dry_run: bool
     Fixes: credential wrapping, input validation, result truncation,
     read-only defaults, path traversal protection.
     """
-    from agentshield.hardener.runner import run_harden
+    from teeshield.hardener.runner import run_harden
 
     run_harden(server_path, read_only=read_only, truncate_limit=truncate_limit, dry_run=dry_run)
 
@@ -72,6 +72,6 @@ def evaluate(original: str, improved: str, scenarios: str | None, models: tuple[
     Runs LLM compatibility tests against ORIGINAL and IMPROVED servers,
     producing a before/after comparison report.
     """
-    from agentshield.evaluator.runner import run_eval
+    from teeshield.evaluator.runner import run_eval
 
     run_eval(original, improved, scenarios_path=scenarios, models=list(models))

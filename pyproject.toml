@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agentshield"
+name = "teeshield"
 version = "0.1.0"
 description = "Scan, improve, and certify MCP servers and AI agent skills"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 authors = [
-    { name = "AgentShield" },
+    { name = "TeeShield" },
 ]
 keywords = ["mcp", "ai-agent", "security", "tool-firewall", "skill-rating"]
 classifiers = [
@@ -40,7 +40,7 @@ ai = [
 ]
 
 [project.scripts]
-agentshield = "agentshield.cli:main"
+teeshield = "teeshield.cli:main"
 
 [tool.ruff]
 target-version = "py311"

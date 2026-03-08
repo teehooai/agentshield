@@ -6,7 +6,7 @@ import ast
 import re
 from pathlib import Path
 
-from agentshield.models import SecurityIssue
+from teeshield.models import SecurityIssue
 
 # Patterns that indicate security risks
 DANGEROUS_PATTERNS = {

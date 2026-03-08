@@ -1,4 +1,4 @@
-name: AgentShield Scan
+name: TeeShield Scan
 
 on:
   workflow_dispatch:
@@ -35,21 +35,21 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install AgentShield
+      - name: Install TeeShield
         run: pip install -e .
 
       - name: Run scan
         run: |
-          agentshield scan "${{ inputs.target }}" --format "${{ inputs.format || 'table' }}"
+          teeshield scan "${{ inputs.target }}" --format "${{ inputs.format || 'table' }}"
 
       - name: Run scan (JSON artifact)
         if: always()
         run: |
-          agentshield scan "${{ inputs.target }}" --format json -o scan-report.json || true
+          teeshield scan "${{ inputs.target }}" --format json -o scan-report.json || true
 
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: agentshield-report
+          name: teeshield-report
           path: scan-report.json

@@ -10,11 +10,11 @@ import sys
 from rich.console import Console
 from rich.table import Table
 
-from agentshield.models import ScanReport
-from agentshield.scanner.license_check import check_license
-from agentshield.scanner.security_scan import scan_security
-from agentshield.scanner.description_quality import score_descriptions
-from agentshield.scanner.architecture_check import check_architecture
+from teeshield.models import ScanReport
+from teeshield.scanner.license_check import check_license
+from teeshield.scanner.security_scan import scan_security
+from teeshield.scanner.description_quality import score_descriptions
+from teeshield.scanner.architecture_check import check_architecture
 
 console = Console()
 stderr_console = Console(file=sys.stderr)
@@ -70,7 +70,7 @@ def run_scan(target: str, output_path: str | None = None, output_format: str = "
     improvement_potential = 10.0 - overall
 
     # Determine rating
-    from agentshield.models import Rating
+    from teeshield.models import Rating
     if any(i.severity == "critical" for i in security_issues):
         rating = Rating.F
     elif overall >= 9.0:
@@ -87,9 +87,9 @@ def run_scan(target: str, output_path: str | None = None, output_format: str = "
     # Build recommendations
     recommendations = []
     if desc_score < 6.0:
-        recommendations.append("Run `agentshield rewrite` to optimize tool descriptions for LLMs")
+        recommendations.append("Run `teeshield rewrite` to optimize tool descriptions for LLMs")
     if security_score < 6.0:
-        recommendations.append("Run `agentshield harden` to fix security issues")
+        recommendations.append("Run `teeshield harden` to fix security issues")
     if len(tool_names) > 40:
         recommendations.append(
             f"Too many tools ({len(tool_names)}). Consider splitting into multiple servers"
@@ -129,7 +129,7 @@ def run_scan(target: str, output_path: str | None = None, output_format: str = "
 
 def _print_table(report: ScanReport):
     """Print a rich table summary."""
-    table = Table(title=f"AgentShield Scan Report - {report.target}")
+    table = Table(title=f"TeeShield Scan Report - {report.target}")
     table.add_column("Metric", style="bold")
     table.add_column("Value")
     table.add_column("Score", justify="right")

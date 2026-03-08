@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 
-from agentshield.models import ToolDescriptionScore
+from teeshield.models import ToolDescriptionScore
 
 
 def score_descriptions(

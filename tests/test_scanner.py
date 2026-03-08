@@ -2,10 +2,10 @@
 
 from pathlib import Path
 
-from agentshield.scanner.license_check import check_license
-from agentshield.scanner.security_scan import scan_security
-from agentshield.scanner.description_quality import score_descriptions
-from agentshield.scanner.architecture_check import check_architecture
+from teeshield.scanner.license_check import check_license
+from teeshield.scanner.security_scan import scan_security
+from teeshield.scanner.description_quality import score_descriptions
+from teeshield.scanner.architecture_check import check_architecture
 
 
 def test_license_check_mit(tmp_path: Path):

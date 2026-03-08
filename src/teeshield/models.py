@@ -1,4 +1,4 @@
-"""Core data models for AgentShield."""
+"""Core data models for TeeShield."""
 
 from __future__ import annotations
 

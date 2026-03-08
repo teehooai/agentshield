@@ -1,0 +1,72 @@
+[
+  {
+    "name": "read_file",
+    "original": "Read the complete contents of a file as text. DEPRECATED: Use read_text_file instead.",
+    "rewritten": "Read the complete contents of a file as text. DEPRECATED: Use read_text_file instead. Use when the user needs to examine file contents or retrieve stored data. Unlike read_text_file, read_media_file, this tool specifically handles read file. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "read_text_file",
+    "original": "Read the complete contents of a file from the file system as text. Handles various text encodings and provides detailed error messages if the file cannot be read. Use this tool when you need to examine the contents of a single file. Use the",
+    "rewritten": "Read the complete contents of a file from the file system as text. Handles various text encodings and provides detailed error messages if the file cannot be read. Use this tool when you need to examine the contents of a single file. Use the. Use when the user needs to examine file contents or retrieve stored data. Unlike read_file, read_media_file, this tool specifically handles read text file. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "read_media_file",
+    "original": "Read an image or audio file. Returns the base64 encoded data and MIME type. Only works within allowed directories.",
+    "rewritten": "Read an image or audio file. Returns the base64 encoded data and MIME type. Only works within allowed directories. Use when the user needs to examine file contents or retrieve stored data. Unlike read_file, read_text_file, this tool specifically handles read media file. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "read_multiple_files",
+    "original": "Read the contents of multiple files simultaneously. This is more efficient than reading files one by one when you need to analyze or compare multiple files. Each file",
+    "rewritten": "Read the contents of multiple files simultaneously. This is more efficient than reading files one by one when you need to analyze or compare multiple files. Each file. Use when the user needs to examine file contents or retrieve stored data. Unlike read_file, read_text_file, this tool specifically handles read multiple files. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "write_file",
+    "original": "Create a new file or completely overwrite an existing file with new content. Use with caution as it will overwrite existing files without warning. Handles text content with proper encoding. Only works within allowed directories.",
+    "rewritten": "Write a new file or completely overwrite an existing file with new content. Use with caution as it will overwrite existing files without warning. Handles text content with proper encoding. Only works within allowed directories. Use when the user wants to create or overwrite a file with new content. Unlike read_file, read_text_file, this tool specifically handles write file. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "edit_file",
+    "original": "Make line-based edits to a text file. Each edit replaces exact line sequences with new content. Returns a git-style diff showing the changes made. Only works within allowed directories.",
+    "rewritten": "Edit line-based edits to a text file. Each edit replaces exact line sequences with new content. Returns a git-style diff showing the changes made. Only works within allowed directories. Use when the user wants to modify part of an existing file without rewriting it entirely. Unlike read_file, read_text_file, this tool specifically handles edit file. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "create_directory",
+    "original": "Create a new directory or ensure a directory exists. Can create multiple nested directories in one operation. If the directory already exists, this operation will succeed silently. Perfect for setting up directory structures for projects or ensuring required paths exist. Only works within allowed directories.",
+    "rewritten": "Create a new directory or ensure a directory exists. Can create multiple nested directories in one operation. If the directory already exists, this operation will succeed silently. Perfect for setting up directory structures for projects or ensuring required paths exist. Only works within allowed directories. Use when the user wants to create a new resource that does not yet exist. Unlike list_directory, list_directory_with_sizes, this tool specifically handles create directory. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "list_directory",
+    "original": "Get a detailed listing of all files and directories in a specified path. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is essential for understanding directory structure and finding specific files within a directory. Only works within allowed directories.",
+    "rewritten": "List a detailed listing of all files and directories in a specified path. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is essential for understanding directory structure and finding specific files within a directory. Only works within allowed directories. Use when the user wants to see all available items in a collection or directory. Unlike create_directory, list_directory_with_sizes, this tool specifically handles list directory. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "list_directory_with_sizes",
+    "original": "Get a detailed listing of all files and directories in a specified path, including sizes. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is useful for understanding directory structure and finding specific files within a directory. Only works within allowed directories.",
+    "rewritten": "List a detailed listing of all files and directories in a specified path, including sizes. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is useful for understanding directory structure and finding specific files within a directory. Only works within allowed directories. Use when the user wants to see all available items in a collection or directory. Unlike create_directory, list_directory, this tool specifically handles list directory with sizes. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "directory_tree",
+    "original": "Get a recursive tree view of files and directories as a JSON structure. Each entry includes",
+    "rewritten": "Get a recursive tree view of files and directories as a JSON structure. Each entry includes. Use when the user wants to directory tree. Unlike create_directory, list_directory, this tool specifically handles directory tree. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "move_file",
+    "original": "Move or rename files and directories. Can move files between directories and rename them in a single operation. If the destination exists, the operation will fail. Works across different directories and can be used for simple renaming within the same directory. Both source and destination must be within allowed directories.",
+    "rewritten": "Move or rename files and directories. Can move files between directories and rename them in a single operation. If the destination exists, the operation will fail. Works across different directories and can be used for simple renaming within the same directory. Both source and destination must be within allowed directories. Use when the user wants to relocate or rename a file or resource. Unlike read_file, read_text_file, this tool specifically handles move file. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "search_files",
+    "original": "Recursively search for files and directories matching a pattern. The patterns should be glob-style patterns that match paths relative to the working directory. Use pattern like",
+    "rewritten": "Search Recursively search for files and directories matching a pattern. The patterns should be glob-style patterns that match paths relative to the working directory. Use pattern like. Use when the user wants to find items matching specific criteria or patterns. Unlike read_multiple_files, this tool specifically handles search files. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "get_file_info",
+    "original": "Retrieve detailed metadata about a file or directory. Returns comprehensive information including size, creation time, last modified time, permissions, and type. This tool is perfect for understanding file characteristics without reading the actual content. Only works within allowed directories.",
+    "rewritten": "Retrieve detailed metadata about a file or directory. Returns comprehensive information including size, creation time, last modified time, permissions, and type. This tool is perfect for understanding file characteristics without reading the actual content. Only works within allowed directories. Use when the user needs to retrieve a specific resource by identifier. Unlike read_file, read_text_file, this tool specifically handles get file info. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  },
+  {
+    "name": "list_allowed_directories",
+    "original": "Returns the list of directories that this server is allowed to access. Subdirectories within these allowed directories are also accessible. Use this to understand which directories and their nested paths are available before trying to access files.",
+    "rewritten": "List the list of directories that this server is allowed to access. Subdirectories within these allowed directories are also accessible. Use this to understand which directories and their nested paths are available before trying to access files. Use when the user wants to see all available items in a collection or directory. Unlike list_directory, list_directory_with_sizes, this tool specifically handles list allowed directories. If the path does not exist, verify the path is within allowed directories. Check file permissions if access is denied."
+  }
+]

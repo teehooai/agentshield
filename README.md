@@ -1,4 +1,4 @@
-# AgentShield
+# TeeShield — Security Scanner for MCP tools
 
 Scan, rate, and harden MCP servers for AI agent safety.
 
@@ -12,16 +12,16 @@ pip install -e ".[dev]"
 
 ```bash
 # Scan an MCP server
-agentshield scan ./path/to/server.py
+teeshield scan ./path/to/server.py
 
 # Rewrite tool descriptions (requires ANTHROPIC_API_KEY)
-agentshield rewrite ./path/to/server.py --dry-run
+teeshield rewrite ./path/to/server.py --dry-run
 
 # Harden a server (detect + fix security issues)
-agentshield harden ./path/to/server.py
+teeshield harden ./path/to/server.py
 
 # Evaluate tool selection accuracy before/after
-agentshield eval ./original.py ./improved.py
+teeshield eval ./original.py ./improved.py
 ```
 
 ## Rating Scale

@@ -9,7 +9,7 @@ import yaml
 from rich.console import Console
 from rich.table import Table
 
-from agentshield.models import EvalReport, EvalResult
+from teeshield.models import EvalReport, EvalResult
 
 console = Console()
 
@@ -91,7 +91,7 @@ def _load_scenarios(path: str) -> list[dict]:
 
 def _auto_generate_scenarios(server_path: Path) -> list[dict]:
     """Auto-generate basic test scenarios from tool definitions."""
-    from agentshield.scanner.description_quality import _extract_tools
+    from teeshield.scanner.description_quality import _extract_tools
 
     tools = _extract_tools(server_path)
     scenarios = []
@@ -107,7 +107,7 @@ def _evaluate_server(
     server_path: Path, scenarios: list[dict], models: list[str]
 ) -> list[EvalResult]:
     """Evaluate tool selection for a server against scenarios."""
-    from agentshield.scanner.description_quality import _extract_tools
+    from teeshield.scanner.description_quality import _extract_tools
 
     tools = _extract_tools(server_path)
     if not tools:

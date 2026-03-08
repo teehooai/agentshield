@@ -1,4 +1,4 @@
-name: 'AgentShield Scan'
+name: 'TeeShield Scan'
 description: 'Scan an MCP server for security issues, description quality, and architecture'
 branding:
   icon: 'shield'
@@ -37,18 +37,18 @@ runs:
       with:
         python-version: '3.12'
 
-    - name: Install AgentShield
+    - name: Install TeeShield
       shell: bash
-      run: pip install agentshield
+      run: pip install teeshield
 
     - name: Run scan
       id: scan
       shell: bash
       run: |
-        agentshield scan "${{ inputs.target }}" --format "${{ inputs.format }}"
+        teeshield scan "${{ inputs.target }}" --format "${{ inputs.format }}"
 
         # Parse JSON for outputs
-        REPORT=$(agentshield scan "${{ inputs.target }}" --format json 2>/dev/null)
+        REPORT=$(teeshield scan "${{ inputs.target }}" --format json 2>/dev/null)
         echo "score=$(echo "$REPORT" | python -c 'import sys,json; print(json.loads(sys.stdin.read(), strict=False)["overall_score"])')" >> $GITHUB_OUTPUT
         echo "rating=$(echo "$REPORT" | python -c 'import sys,json; print(json.loads(sys.stdin.read(), strict=False)["rating"])')" >> $GITHUB_OUTPUT
         echo "tool_count=$(echo "$REPORT" | python -c 'import sys,json; print(json.loads(sys.stdin.read(), strict=False)["tool_count"])')" >> $GITHUB_OUTPUT
@@ -60,6 +60,6 @@ runs:
         SCORE="${{ steps.scan.outputs.score }}"
         THRESHOLD="${{ inputs.fail-below }}"
         if (( $(echo "$SCORE < $THRESHOLD" | bc -l) )); then
-          echo "::error::AgentShield score $SCORE is below threshold $THRESHOLD"
+          echo "::error::TeeShield score $SCORE is below threshold $THRESHOLD"
           exit 1
         fi

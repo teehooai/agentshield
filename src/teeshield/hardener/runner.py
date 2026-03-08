@@ -55,7 +55,7 @@ def run_harden(
     if dry_run:
         console.print("\n[yellow]Dry run — no files were modified. Remove --dry-run to apply.[/yellow]")
     else:
-        console.print("\n[green]Hardening complete.[/green] Run `agentshield scan` to verify.\n")
+        console.print("\n[green]Hardening complete.[/green] Run `teeshield scan` to verify.\n")
 
 
 def _fix_credentials(path: Path, dry_run: bool) -> list[str]:

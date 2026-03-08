@@ -188,7 +188,7 @@ def run_rewrite(
         raise SystemExit(1)
 
     # Extract tools
-    from agentshield.scanner.description_quality import _extract_tools
+    from teeshield.scanner.description_quality import _extract_tools
 
     tools = _extract_tools(path)
     if not tools:
@@ -244,8 +244,8 @@ def run_rewrite(
 
 def _print_comparison(results: list[dict]):
     """Print a before/after comparison table."""
-    from agentshield.scanner.description_quality import score_descriptions
-    from agentshield.models import ToolDescriptionScore
+    from teeshield.scanner.description_quality import score_descriptions
+    from teeshield.models import ToolDescriptionScore
 
     table = Table(title="Description Rewrite Results", show_lines=True)
     table.add_column("Tool", style="bold", width=20)
