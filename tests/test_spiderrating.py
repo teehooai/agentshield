@@ -5,11 +5,11 @@ from __future__ import annotations
 from teeshield.spiderrating import (
     compute_grade,
     compute_metadata_score,
+    convert,
     detect_hard_constraints,
     map_description_dimensions,
     map_security,
     parse_owner_repo,
-    convert,
 )
 
 
@@ -71,14 +71,23 @@ class TestComputeMetadataScore:
         assert 0 <= result["composite"] <= 10
 
     def test_high_stars(self):
-        meta = {"stars": 10000, "forks": 500, "license": "MIT", "description": "A great tool for developers"}
+        meta = {
+            "stars": 10000, "forks": 500,
+            "license": "MIT",
+            "description": "A great tool for developers",
+        }
         result = compute_metadata_score(meta)
         assert result["popularity"] >= 9.0
         assert result["provenance"] >= 7.0
 
     def test_recent_commit(self):
-        from datetime import datetime, timezone
-        meta = {"stars": 0, "forks": 0, "last_commit": datetime.now(timezone.utc).isoformat()}
+        import datetime as dt
+        meta = {
+            "stars": 0, "forks": 0,
+            "last_commit": dt.datetime.now(
+                tz=dt.UTC
+            ).isoformat(),
+        }
         result = compute_metadata_score(meta)
         assert result["maintenance"] >= 8.0
 

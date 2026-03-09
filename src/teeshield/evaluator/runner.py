@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import re
+from pathlib import Path
 
 import yaml
 from rich.console import Console

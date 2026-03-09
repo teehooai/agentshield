@@ -15,7 +15,11 @@ def main():
 @main.command()
 @click.argument("target")
 @click.option("--output", "-o", default=None, help="Output report path (JSON/SARIF)")
-@click.option("--format", "fmt", type=click.Choice(["table", "json", "sarif", "spiderrating"]), default="table")
+@click.option(
+    "--format", "fmt",
+    type=click.Choice(["table", "json", "sarif", "spiderrating"]),
+    default="table",
+)
 @click.option("--tools-json", default=None, help="Pre-extracted tools JSON (MCP tools/list format)")
 def scan(target: str, output: str | None, fmt: str, tools_json: str | None):
     """Scan an MCP server for security issues and description quality.
@@ -41,7 +45,7 @@ def scan(target: str, output: str | None, fmt: str, tools_json: str | None):
             console.print(sarif_json)
     elif fmt == "spiderrating":
         import json
-        from pathlib import Path as P
+        from pathlib import Path as SpiderPath
 
         from teeshield.scanner.runner import run_scan_report
 
@@ -53,13 +57,13 @@ def scan(target: str, output: str | None, fmt: str, tools_json: str | None):
         try:
             owner, repo = parse_owner_repo(target)
         except ValueError:
-            owner, repo = "local", P(target).name
+            owner, repo = "local", SpiderPath(target).name
 
         result = convert(report_dict, owner, repo)
         json_str = json.dumps(result, indent=2)
 
         if output:
-            P(output).write_text(json_str, encoding="utf-8")
+            SpiderPath(output).write_text(json_str, encoding="utf-8")
             Console(stderr=True).print(f"[green]SpiderRating JSON written to {output}[/green]")
         else:
             console.print(json_str)
@@ -285,7 +289,6 @@ def agent_check(
         # Try to extract owner/repo from agent_dir or first skill path
         owner, repo = "local", effective_path.name
         if result.skill_findings:
-            first_path = result.skill_findings[0].skill_path
             skill_name = result.skill_findings[0].skill_name
         else:
             skill_name = repo
@@ -676,7 +679,10 @@ def dataset_pr_list(status: str | None):
 @click.option("--scenarios", "-s", default=None, help="Path to test scenarios YAML")
 @click.option("--models", "-m", multiple=True, default=["claude-sonnet-4-20250514"])
 @click.option("--llm", is_flag=True, help="Use LLM for evaluation (requires ANTHROPIC_API_KEY)")
-@click.option("--tools-json", default=None, help="Pre-extracted tools JSON (overrides source extraction)")
+@click.option(
+    "--tools-json", default=None,
+    help="Pre-extracted tools JSON (overrides source extraction)",
+)
 def evaluate(
     original: str, improved: str, scenarios: str | None,
     models: tuple[str, ...], llm: bool, tools_json: str | None,

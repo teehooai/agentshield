@@ -8,7 +8,8 @@ Usage:
     python scripts/teeshield_to_spiderrating.py --from-json scan_report.json
 
     # Output to SpiderRating data directory
-    python scripts/teeshield_to_spiderrating.py owner/repo --out-dir ../spidershield/web/public/data/servers/
+    python scripts/teeshield_to_spiderrating.py owner/repo \
+        --out-dir ../spidershield/web/public/data/servers/
 
 Thin wrapper around teeshield.spiderrating -- all logic lives in the library.
 """

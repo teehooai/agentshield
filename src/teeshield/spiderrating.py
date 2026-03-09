@@ -13,7 +13,7 @@ import json
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def fetch_github_metadata(owner: str, repo: str) -> dict:
@@ -57,7 +57,7 @@ def compute_metadata_score(meta: dict) -> dict:
     if meta.get("last_commit"):
         try:
             last = datetime.fromisoformat(meta["last_commit"].replace("Z", "+00:00"))
-            days_ago = (datetime.now(timezone.utc) - last).days
+            days_ago = (datetime.now(tz=UTC) - last).days
             if days_ago < 30:
                 maintenance = 9.0
             elif days_ago < 90:
@@ -147,7 +147,11 @@ def map_description_dimensions(tool_scores: list[dict]) -> dict:
     }
 
 
-def map_security(security_score: float, security_issues: list[dict], architecture_score: float) -> dict:
+def map_security(
+    security_score: float,
+    security_issues: list[dict],
+    architecture_score: float,
+) -> dict:
     """Map TeeShield security + architecture to SpiderRating security format."""
     critical = sum(1 for i in security_issues if i.get("severity") == "critical")
     high = sum(1 for i in security_issues if i.get("severity") == "high")
@@ -179,7 +183,9 @@ def map_security(security_score: float, security_issues: list[dict], architectur
 
 def compute_grade(overall: float, hard_constraint: str | None) -> str:
     """Compute SpiderRating grade (F/D/C/B/A)."""
-    if hard_constraint and hard_constraint in ("critical_vulnerability", "no_tools", "known_malicious"):
+    if hard_constraint and hard_constraint in (
+        "critical_vulnerability", "no_tools", "known_malicious",
+    ):
         return "F"
     if hard_constraint == "license_banned":
         return "D" if overall >= 4.0 else "F"
@@ -194,14 +200,18 @@ def compute_grade(overall: float, hard_constraint: str | None) -> str:
     return "F"
 
 
-def detect_hard_constraints(security_issues: list[dict], tool_count: int, license_info: str | None) -> str | None:
+def detect_hard_constraints(
+    security_issues: list[dict],
+    tool_count: int,
+    license_info: str | None,
+) -> str | None:
     """Detect SpiderRating hard constraints."""
     if any(i.get("severity") == "critical" for i in security_issues):
         return "critical_vulnerability"
     if tool_count == 0:
         return "no_tools"
     banned = {"AGPL-3.0", "AGPL-3.0-only", "AGPL-3.0-or-later", "SSPL-1.0", "BSL-1.1"}
-    if license_info and license_info.upper() in {l.upper() for l in banned}:
+    if license_info and license_info.upper() in {lic.upper() for lic in banned}:
         return "license_banned"
     return None
 
@@ -238,7 +248,10 @@ def score_skill_description(content: str) -> dict:
     # permission_scope: Does it document what it accesses / needs?
     has_requires = bool(re.search(r"requires?:?|dependencies|prerequisites|requirements?:?", lower))
     has_bins = bool(re.search(r"bins:\s*\[", content))
-    has_file_access = bool(re.search(r"(read|write|access|modify)\s+(files?|directories|folders?)", lower))
+    has_file_access = bool(re.search(
+        r"(read|write|access|modify)\s+(files?|directories|folders?)",
+        lower,
+    ))
     permission_scope = (
         (4.0 if has_requires else 0.0)
         + (3.0 if has_bins else 0.0)
@@ -252,7 +265,7 @@ def score_skill_description(content: str) -> dict:
     ))
     has_undo = bool(re.search(r"(undo|revert|rollback|backup)", lower))
     side_effects = (
-        (5.0 if has_side_effects else 2.0)  # Base 2.0 — no side effects mentioned could mean none exist
+        (5.0 if has_side_effects else 2.0)  # Base 2.0: no side effects may mean none
         + (3.0 if has_undo else 0.0)
         + (2.0 if length > 200 else 0.0)  # Longer docs tend to cover more
     )
@@ -269,8 +282,14 @@ def score_skill_description(content: str) -> dict:
     )
 
     # operational_boundaries: Does it define scope and constraints?
-    has_scope = bool(re.search(r"(scope|boundary|boundaries|only\s+works|limited\s+to|specific\s+to)", lower))
-    has_when_to_use = bool(re.search(r"(when\s+to\s+use|use\s+this\s+when|best\s+for|ideal\s+for)", lower))
+    has_scope = bool(re.search(
+        r"(scope|boundary|boundaries|only\s+works|limited\s+to|specific\s+to)",
+        lower,
+    ))
+    has_when_to_use = bool(re.search(
+        r"(when\s+to\s+use|use\s+this\s+when|best\s+for|ideal\s+for)",
+        lower,
+    ))
     length_score = min(3.0, length / 500.0)  # Up to 3 points for adequate length
     operational_boundaries = (
         (4.0 if has_scope else 0.0)
@@ -410,7 +429,9 @@ def convert_skill(
 
     # SpiderRating weights: 35/35/30
     overall = round(
-        description["composite"] * 0.35 + security["score"] * 0.35 + metadata["composite"] * 0.30, 1,
+        description["composite"] * 0.35
+        + security["score"] * 0.35
+        + metadata["composite"] * 0.30, 1,
     )
 
     # Hard constraints for skills
@@ -461,7 +482,7 @@ def convert_skill(
             "hard_constraint_applied": hard_constraint,
         },
         "tool_count": 0,
-        "scanned_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "scanned_at": datetime.now(tz=UTC).isoformat().replace("+00:00", "Z"),
         "scan_duration_ms": duration_ms,
     }
 
@@ -497,7 +518,9 @@ def convert(teeshield_report: dict, owner: str, repo: str, github_meta: dict | N
 
     # SpiderRating weights: 35/35/30
     overall = round(
-        description["composite"] * 0.35 + security["score"] * 0.35 + metadata["composite"] * 0.30, 1,
+        description["composite"] * 0.35
+        + security["score"] * 0.35
+        + metadata["composite"] * 0.30, 1,
     )
 
     tool_count = teeshield_report.get("tool_count", 0)
@@ -541,6 +564,6 @@ def convert(teeshield_report: dict, owner: str, repo: str, github_meta: dict | N
             "hard_constraint_applied": hard_constraint,
         },
         "tool_count": tool_count,
-        "scanned_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "scanned_at": datetime.now(tz=UTC).isoformat().replace("+00:00", "Z"),
         "scan_duration_ms": duration_ms,
     }

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from teeshield.rewriter.cache import cache_key, get_cached, set_cached, clear_cache
+from teeshield.rewriter.cache import cache_key, clear_cache, get_cached, set_cached
 
 
 class TestCacheKey:
