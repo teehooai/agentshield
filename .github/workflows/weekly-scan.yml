@@ -1,0 +1,66 @@
+name: Weekly MCP Server Scan
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 09:00 UTC
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install TeeShield
+        run: pip install -e .
+
+      - name: Scan official MCP servers
+        run: |
+          mkdir -p scan-results
+          TARGETS=(
+            "https://github.com/modelcontextprotocol/servers"
+            "https://github.com/supabase-community/supabase-mcp"
+            "https://github.com/neondatabase/mcp-server-neon"
+            "https://github.com/korotovsky/slack-mcp-server"
+          )
+          for target in "${TARGETS[@]}"; do
+            name=$(basename "$target")
+            echo "Scanning: $name"
+            teeshield scan "$target" --format json -o "scan-results/${name}.json" || true
+          done
+
+      - name: Generate summary
+        run: |
+          python -c "
+          import json, glob, sys
+          results = []
+          for f in sorted(glob.glob('scan-results/*.json')):
+              try:
+                  data = json.load(open(f))
+                  results.append({
+                      'server': data.get('target', f),
+                      'overall': data.get('overall_score', 0),
+                      'security': data.get('security_score', 0),
+                      'descriptions': data.get('description_score', 0),
+                      'rating': data.get('rating', '?'),
+                      'tools': data.get('tool_count', 0),
+                  })
+              except Exception as e:
+                  print(f'Error reading {f}: {e}', file=sys.stderr)
+          json.dump({'scan_date': '$(date -I)', 'servers': results}, open('scan-results/summary.json', 'w'), indent=2)
+          print(f'Scanned {len(results)} servers')
+          for r in sorted(results, key=lambda x: -x['overall']):
+              print(f\"  {r['rating']:3s} {r['overall']:5.1f}  {r['server']}\")
+          "
+
+      - name: Upload scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-scan-${{ github.run_number }}
+          path: scan-results/
+          retention-days: 90

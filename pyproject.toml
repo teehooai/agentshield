@@ -5,14 +5,14 @@ build-backend = "hatchling.build"
 [project]
 name = "teeshield"
 version = "0.2.0"
-description = "Scan, improve, and certify MCP servers and AI agent skills"
+description = "Security linter for MCP servers and AI agents -- 46 checks for vulnerabilities, malicious patterns, and description quality"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 authors = [
     { name = "TeeShield" },
 ]
-keywords = ["mcp", "ai-agent", "security", "tool-firewall", "skill-rating"]
+keywords = ["mcp", "ai-agent", "security", "tool-firewall", "skill-rating", "static-analysis", "malware-detection", "sarif"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

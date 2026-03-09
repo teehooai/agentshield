@@ -14,16 +14,31 @@ def main():
 
 @main.command()
 @click.argument("target")
-@click.option("--output", "-o", default=None, help="Output report path (JSON)")
-@click.option("--format", "fmt", type=click.Choice(["table", "json"]), default="table")
+@click.option("--output", "-o", default=None, help="Output report path (JSON/SARIF)")
+@click.option("--format", "fmt", type=click.Choice(["table", "json", "sarif"]), default="table")
 def scan(target: str, output: str | None, fmt: str):
     """Scan an MCP server for security issues and description quality.
 
     TARGET can be a GitHub repo URL or a local directory path.
     """
-    from teeshield.scanner.runner import run_scan
+    if fmt == "sarif":
+        from teeshield.agent.sarif import sarif_to_json, scan_report_to_sarif
+        from teeshield.scanner.runner import run_scan_report
 
-    run_scan(target, output_path=output, output_format=fmt)
+        report = run_scan_report(target)
+        sarif = scan_report_to_sarif(report)
+        sarif_json = sarif_to_json(sarif)
+        if output:
+            from pathlib import Path
+
+            Path(output).write_text(sarif_json, encoding="utf-8")
+            Console(stderr=True).print(f"[green]SARIF report written to {output}[/green]")
+        else:
+            console.print(sarif_json)
+    else:
+        from teeshield.scanner.runner import run_scan
+
+        run_scan(target, output_path=output, output_format=fmt)
 
 
 @main.command()
@@ -49,16 +64,16 @@ def rewrite(server_path: str, model: str, dry_run: bool, output: str | None):
 @click.argument("server_path")
 @click.option("--read-only/--no-read-only", default=True, help="Enable read-only defaults")
 @click.option("--truncate-limit", default=100, help="Max rows/items in tool responses")
-@click.option("--dry-run", is_flag=True, help="Preview changes without writing")
-def harden(server_path: str, read_only: bool, truncate_limit: int, dry_run: bool):
-    """Apply security hardening to an MCP server.
+def harden(server_path: str, read_only: bool, truncate_limit: int):
+    """Suggest security hardening for an MCP server (advisory only).
 
-    Fixes: credential wrapping, input validation, result truncation,
-    read-only defaults, path traversal protection.
+    Scans for: insecure credential handling, missing input validation,
+    unbounded query results, and write operations that should default
+    to read-only. Prints suggestions but does not modify any files.
     """
     from teeshield.hardener.runner import run_harden
 
-    run_harden(server_path, read_only=read_only, truncate_limit=truncate_limit, dry_run=dry_run)
+    run_harden(server_path, read_only=read_only, truncate_limit=truncate_limit)
 
 
 @main.command(name="agent-check")
@@ -287,12 +302,13 @@ def pin_remove(skill_name: str, pin_dir: str | None):
 @click.argument("improved")
 @click.option("--scenarios", "-s", default=None, help="Path to test scenarios YAML")
 @click.option("--models", "-m", multiple=True, default=["claude-sonnet-4-20250514"])
-def evaluate(original: str, improved: str, scenarios: str | None, models: tuple[str, ...]):
+@click.option("--llm", is_flag=True, help="Use LLM for evaluation (requires ANTHROPIC_API_KEY)")
+def evaluate(original: str, improved: str, scenarios: str | None, models: tuple[str, ...], llm: bool):
     """Compare tool selection accuracy before and after improvements.
 
-    Runs LLM compatibility tests against ORIGINAL and IMPROVED servers,
-    producing a before/after comparison report.
+    Uses heuristic keyword matching by default (free, no API key needed).
+    Add --llm to use Claude for higher-quality evaluation.
     """
     from teeshield.evaluator.runner import run_eval
 
-    run_eval(original, improved, scenarios_path=scenarios, models=list(models))
+    run_eval(original, improved, scenarios_path=scenarios, models=list(models), use_llm=llm)

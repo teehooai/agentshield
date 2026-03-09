@@ -58,15 +58,38 @@ VERB_MAP = {
     "close": "Close",
 }
 
-# Scenario triggers -- domain-neutral only.
-# Filesystem/git-specific scenarios removed in v0.2 because they produced
-# nonsensical output for non-filesystem tools (e.g. "list_extensions" ->
-# "see all available items in a collection or directory").
-# Only truly universal patterns are kept.
+# Scenario triggers -- domain-neutral (always applied).
 SCENARIO_TRIGGERS = {
     "search": "Use when the user wants to find items matching specific criteria.",
     "diff": "Use when the user wants to compare two versions.",
 }
+
+# Domain-specific scenarios (v0.2.1): only fire when the tool name contains
+# the keyword AND at least one sibling tool contains a domain signal.
+# This prevents false matches like "list_extensions" -> filesystem scenario.
+DOMAIN_SCENARIOS: list[tuple[str, list[str], str]] = [
+    # (keyword_in_name, [sibling_signal_keywords], scenario_text)
+    # Filesystem
+    ("read_file", ["write_file", "list_file", "directory"],
+     "Use when the user wants to view the contents of a specific file."),
+    ("write_file", ["read_file", "list_file", "directory"],
+     "Use when the user wants to save or update file contents."),
+    ("list_file", ["read_file", "write_file", "directory"],
+     "Use when the user wants to see what files are available."),
+    # Database
+    ("query", ["table", "database", "sql", "schema"],
+     "Use when the user wants to retrieve data from the database."),
+    ("list_table", ["query", "database", "sql", "schema"],
+     "Use when the user wants to discover available tables."),
+    # Git
+    ("commit", ["branch", "log", "status", "diff"],
+     "Use when the user wants to save staged changes to the repository."),
+    ("status", ["commit", "branch", "diff", "checkout"],
+     "Use when the user wants to check which files are modified or staged."),
+    # Network
+    ("fetch", ["url", "http", "request", "download"],
+     "Use when the user wants to retrieve content from a URL."),
+]
 
 # NOTE: Generic error guidance removed (v0.2).
 # Tautological boilerplate like "If the path does not exist, verify the path"
@@ -115,15 +138,21 @@ def _rewrite_local(tool: dict, all_tools: list[dict]) -> str:
     else:
         opening = f"{verb or 'Perform'} the {name.replace('_', ' ')} operation."
 
-    # 2. Add scenario trigger (only from known patterns, never tautological)
+    # 2. Add scenario trigger (domain-neutral first, then domain-specific)
     scenario = ""
     for key, trigger in SCENARIO_TRIGGERS.items():
         if key in name_lower:
             scenario = trigger
             break
-    # NOTE: No fallback -- a tautological "Use when the user wants to
-    # {name}" is worse than no scenario at all. Only LLM rewrites can
-    # generate domain-aware scenarios for unknown tool names.
+
+    # Domain-specific scenarios: only fire when sibling tools confirm the domain
+    if not scenario:
+        sibling_names = " ".join(t["name"].lower() for t in all_tools)
+        for keyword, signals, trigger in DOMAIN_SCENARIOS:
+            if keyword in name_lower:
+                if any(sig in sibling_names for sig in signals):
+                    scenario = trigger
+                    break
 
     # 3. Compose final description
     # NOTE: Mechanical disambiguation ("Unlike X, this tool specifically
@@ -148,15 +177,29 @@ def _quality_gate(original: str, rewritten: str) -> str:
     if original == rewritten:
         return original
 
-    # Reject known tautological patterns
-    tautology_patterns = [
-        r"Use when the user wants to \w+[_ ]\w+",
+    # Reject known tautological patterns.
+    # The first pattern catches mechanical triggers that just restate the
+    # tool name ("Use when the user wants to read files.") but allows
+    # domain-specific triggers with richer phrasing (>= 5 words after "to",
+    # e.g. "Use when the user wants to view the contents of a specific file.").
+    static_tautology_patterns = [
         r"Unlike \w+,? this tool specifically",
         r"verify the path is within allowed directories",
         r"Check file permissions if access is denied",
     ]
-    for pat in tautology_patterns:
+    for pat in static_tautology_patterns:
         if re.search(pat, rewritten, re.IGNORECASE):
+            return original
+
+    # Check for short tautological "Use when" triggers
+    trigger_match = re.search(
+        r"Use when the user wants to (.+?)\.(?:\s|$)",
+        rewritten, re.IGNORECASE,
+    )
+    if trigger_match:
+        trigger_body = trigger_match.group(1).split()
+        # <= 3 words after "to" is tautological (e.g. "read the file")
+        if len(trigger_body) <= 3:
             return original
 
     orig_score = _quick_score(original)

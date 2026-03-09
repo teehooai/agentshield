@@ -15,7 +15,6 @@ from pathlib import Path
 from .issue_codes import get_issue_code
 from .models import SkillFinding, SkillVerdict
 
-
 # --- Malicious Pattern Definitions ---
 
 # Each pattern: (name, regex, severity, description)
@@ -295,7 +294,10 @@ def scan_single_skill(
         typosquat = _check_typosquat(skill_name)
         if typosquat:
             code = get_issue_code("typosquat") or "TS-W007"
-            issues.append(f"[{code}] Name similar to popular skill '{typosquat}' (possible typosquat)")
+            issues.append(
+                f"[{code}] Name similar to popular skill "
+                f"'{typosquat}' (possible typosquat)"
+            )
             matched.append("typosquat")
             has_suspicious = True
 
@@ -309,9 +311,16 @@ def scan_single_skill(
             has_suspicious = True
 
     # Check for toxic flows (dangerous capability combinations)
-    from .toxic_flow import detect_toxic_flows
+    from .toxic_flow import detect_toxic_flows, detect_toxic_flows_ast
 
+    # v1: keyword-based on SKILL.md text
     toxic_flows = detect_toxic_flows(content)
+
+    # v2: AST-level on sibling .py files in the skill directory
+    skill_dir = skill_path.parent
+    for py_file in skill_dir.glob("*.py"):
+        toxic_flows.extend(detect_toxic_flows_ast(py_file))
+
     for tf in toxic_flows:
         pattern_name = f"toxic_flow_{tf.flow_type}"
         if pattern_name in ignored:

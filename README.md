@@ -1,23 +1,25 @@
-# TeeShield -- Security Scanner for MCP tools
+# TeeShield -- Security Scanner for MCP Servers & AI Agents
 
 ![TeeShield Verified](https://img.shields.io/badge/MCP-TeeShield_Verified-green)
 [![PyPI](https://img.shields.io/pypi/v/teeshield)](https://pypi.org/project/teeshield/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**`npm audit` for MCP tools.** Scan tool definitions and detect unsafe descriptions before AI agents misuse them.
+**`npm audit` for MCP tools.** Static analysis linter that scans MCP server tool definitions and AI agent configurations for security vulnerabilities, malicious patterns, and description quality issues. 46 standardized checks across 4 categories.
 
 ## Why TeeShield?
 
-We scanned **79 MCP tools across 7 public servers** and found:
+MCP is the open protocol connecting AI agents to tools. But the ecosystem has two problems:
 
-- Average description quality: **3.1 / 10**
-- 0% of tools have "Use when..." scenario triggers
-- 0% have parameter examples
-- Fewer than 5% have error handling guidance
+**Problem 1: Tool descriptions are terrible.** We scanned 79 MCP tools across 7 public servers -- average description quality is 3.1/10. Agents pick tools by reading descriptions, so vague text like *"access filesystem"* gives them no boundaries.
 
-AI agents pick which tool to call based on the description text. A vague description like *"access filesystem"* gives the agent no boundaries -- it doesn't know which directories are safe, whether it should read or write, or what happens on failure.
+**Problem 2: Agent installations are insecure.** Skills can contain reverse shells, credential theft, and prompt injection. Configurations ship with no auth, disabled sandboxes, and open DM policies.
 
-TeeShield scans tool descriptions, scores them, and rewrites them automatically.
+TeeShield is a dual-module static analysis linter:
+
+| Module | Command | What it does |
+|--------|---------|-------------|
+| **MCP Server Scanner** | `teeshield scan` | Score tool descriptions, detect code vulnerabilities, rate overall quality (F/C/B/A/A+) |
+| **Agent Security Checker** | `teeshield agent-check` | 18 config checks, 15 malicious pattern detections, toxic flow analysis, rug pull detection |
 
 ## Install
 
@@ -158,7 +160,7 @@ teeshield scan ./server --format json -o report.json
 Add TeeShield to your CI pipeline:
 
 ```yaml
-- uses: teehooai/teeshield@v0.1.0
+- uses: teehooai/teeshield@v0.2.0
   with:
     target: '.'
     fail-below: '6.0'
@@ -225,7 +227,7 @@ teeshield agent-pin list
 |---------|-------------|
 | `teeshield scan <path>` | Scan and rate an MCP server |
 | `teeshield rewrite <path>` | Rewrite tool descriptions |
-| `teeshield harden <path>` | Security hardening recommendations |
+| `teeshield harden <path>` | Suggest security hardening (advisory only) |
 | `teeshield eval <original> <improved>` | Compare tool selection accuracy |
 | `teeshield agent-check [dir]` | Scan an AI agent for security issues |
 | `teeshield agent-pin <cmd>` | Manage skill pins for rug pull detection |

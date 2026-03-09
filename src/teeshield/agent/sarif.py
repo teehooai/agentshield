@@ -1,6 +1,7 @@
-"""SARIF v2.1.0 output for TeeShield agent scan results.
+"""SARIF v2.1.0 output for TeeShield scan results.
 
 Produces GitHub Code Scanning compatible SARIF format.
+Supports both MCP server scan reports and agent scan results.
 Spec: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
 """
 
@@ -137,6 +138,89 @@ def scan_result_to_sarif(result: ScanResult) -> dict[str, Any]:
                 message=f"[{sf.skill_name}] {issue}",
                 level=level,
                 uri=sf.skill_path,
+            ))
+
+    sarif = {
+        "$schema": SARIF_SCHEMA,
+        "version": SARIF_VERSION,
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": TOOL_NAME,
+                        "informationUri": TOOL_URI,
+                        "rules": rules,
+                    },
+                },
+                "results": results,
+            },
+        ],
+    }
+
+    return sarif
+
+
+def scan_report_to_sarif(report: Any) -> dict[str, Any]:
+    """Convert a ScanReport (MCP server scan) to SARIF v2.1.0 format.
+
+    Args:
+        report: ScanReport from teeshield.models.
+
+    Returns:
+        SARIF JSON-compatible dict.
+    """
+    rules: list[dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
+    seen_rules: set[str] = set()
+
+    # Security issues
+    _severity_map = {
+        "critical": "error", "high": "error",
+        "medium": "warning", "low": "note", "info": "note",
+    }
+    for issue in report.security_issues:
+        rule_id = f"TS-SEC-{issue.category}"
+        level = _severity_map.get(issue.severity, "warning")
+
+        if rule_id not in seen_rules:
+            rules.append(_make_rule(
+                rule_id=rule_id,
+                name=issue.category,
+                description=issue.description,
+                level=level,
+            ))
+            seen_rules.add(rule_id)
+
+        message = issue.description
+        if issue.fix_suggestion:
+            message += f" Fix: {issue.fix_suggestion}"
+
+        results.append(_make_result(
+            rule_id=rule_id,
+            message=message,
+            level=level,
+            uri=issue.file,
+            line=issue.line or 1,
+        ))
+
+    # Description quality issues (tools scoring below 5.0)
+    for ts in report.tool_scores:
+        if ts.overall_score < 5.0:
+            rule_id = "TS-DESC-low-quality"
+            if rule_id not in seen_rules:
+                rules.append(_make_rule(
+                    rule_id=rule_id,
+                    name="low_description_quality",
+                    description="Tool description scores below 5.0/10",
+                    level="warning",
+                ))
+                seen_rules.add(rule_id)
+
+            results.append(_make_result(
+                rule_id=rule_id,
+                message=f"Tool '{ts.tool_name}' description quality: {ts.overall_score:.1f}/10",
+                level="warning",
+                uri=report.target,
             ))
 
     sarif = {

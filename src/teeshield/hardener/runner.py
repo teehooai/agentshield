@@ -1,4 +1,4 @@
-"""Hardener runner --applies security fixes to MCP servers."""
+"""Hardener runner -- suggests security fixes for MCP servers (advisory only)."""
 
 from __future__ import annotations
 
@@ -13,53 +13,51 @@ def run_harden(
     server_path: str,
     read_only: bool = True,
     truncate_limit: int = 100,
-    dry_run: bool = False,
 ):
-    """Apply security hardening to an MCP server."""
+    """Suggest security hardening for an MCP server (advisory only, no files modified)."""
     path = Path(server_path)
     if not path.exists():
         console.print(f"[red]Path not found: {server_path}[/red]")
         raise SystemExit(1)
 
-    console.print(f"\n[bold]Hardening MCP server:[/bold] {server_path}")
-    console.print(f"[dim]Read-only: {read_only} | Truncate limit: {truncate_limit} | Dry run: {dry_run}[/dim]\n")
+    console.print(f"\n[bold]Security suggestions for:[/bold] {server_path}")
+    console.print(f"[dim]Read-only default: {read_only} | Truncate limit: {truncate_limit}[/dim]\n")
 
     fixes_applied = []
 
-    # Fix 1: Credential wrapping
-    cred_fixes = _fix_credentials(path, dry_run)
+    # Check 1: Credential handling
+    cred_fixes = _fix_credentials(path)
     if cred_fixes:
         fixes_applied.extend(cred_fixes)
 
-    # Fix 2: Input validation
-    validation_fixes = _add_input_validation(path, dry_run)
+    # Check 2: Input validation
+    validation_fixes = _add_input_validation(path)
     if validation_fixes:
         fixes_applied.extend(validation_fixes)
 
-    # Fix 3: Result truncation
-    truncation_fixes = _add_result_truncation(path, truncate_limit, dry_run)
+    # Check 3: Result truncation
+    truncation_fixes = _add_result_truncation(path, truncate_limit)
     if truncation_fixes:
         fixes_applied.extend(truncation_fixes)
 
-    # Fix 4: Read-only defaults
+    # Check 4: Read-only defaults
     if read_only:
-        readonly_fixes = _add_read_only_defaults(path, dry_run)
+        readonly_fixes = _add_read_only_defaults(path)
         if readonly_fixes:
             fixes_applied.extend(readonly_fixes)
 
     # Summary
-    console.print(f"\n[bold]Summary:[/bold] {len(fixes_applied)} fixes {'would be ' if dry_run else ''}applied")
-    for fix in fixes_applied:
-        console.print(f"  [green]+[/green] {fix}")
-
-    if dry_run:
-        console.print("\n[yellow]Dry run --no files were modified. Remove --dry-run to apply.[/yellow]")
+    if fixes_applied:
+        console.print(f"\n[bold]Found {len(fixes_applied)} suggestion(s):[/bold]")
+        for fix in fixes_applied:
+            console.print(f"  [yellow]![/yellow] {fix}")
+        console.print("\n[dim]These are advisory suggestions. No files were modified.[/dim]")
     else:
-        console.print("\n[green]Hardening complete.[/green] Run `teeshield scan` to verify.\n")
+        console.print("\n[green]No issues found.[/green]")
 
 
-def _fix_credentials(path: Path, dry_run: bool) -> list[str]:
-    """Detect and fix insecure credential handling."""
+def _fix_credentials(path: Path) -> list[str]:
+    """Detect insecure credential handling."""
     fixes = []
     for source_file in list(path.rglob("*.py")) + list(path.rglob("*.ts")):
         if "node_modules" in str(source_file):
@@ -71,12 +69,14 @@ def _fix_credentials(path: Path, dry_run: bool) -> list[str]:
 
         if "os.environ" in content or "os.getenv" in content or "process.env" in content:
             rel = source_file.relative_to(path)
-            fixes.append(f"[credential] {rel}: Plain env var credential detected --wrap with secret manager")
-            # TODO: Apply Astrix Secret Wrapper
+            fixes.append(
+                f"[credential] {rel}: Plain env var credential"
+                " -- wrap with secret manager"
+            )
     return fixes
 
 
-def _add_input_validation(path: Path, dry_run: bool) -> list[str]:
+def _add_input_validation(path: Path) -> list[str]:
     """Detect missing input validation and suggest fixes."""
     import re
 
@@ -93,7 +93,10 @@ def _add_input_validation(path: Path, dry_run: bool) -> list[str]:
         if re.search(r"open\(|Path\(", content) and ".." not in content:
             if "resolve" not in content and "is_relative_to" not in content:
                 rel = py_file.relative_to(path)
-                fixes.append(f"[path_traversal] {rel}: Add path validation (resolve + is_relative_to check)")
+                fixes.append(
+                    f"[path_traversal] {rel}: Add path validation"
+                    " (resolve + is_relative_to check)"
+                )
 
         # Detect SQL without parameterization
         if re.search(r'execute\(.*f["\']', content):
@@ -103,7 +106,7 @@ def _add_input_validation(path: Path, dry_run: bool) -> list[str]:
     return fixes
 
 
-def _add_result_truncation(path: Path, limit: int, dry_run: bool) -> list[str]:
+def _add_result_truncation(path: Path, limit: int) -> list[str]:
     """Detect tools that may return unbounded results."""
     fixes = []
     for py_file in path.rglob("*.py"):
@@ -117,12 +120,15 @@ def _add_result_truncation(path: Path, limit: int, dry_run: bool) -> list[str]:
         if "fetchall" in content or "SELECT" in content.upper():
             if "LIMIT" not in content.upper() and str(limit) not in content:
                 rel = py_file.relative_to(path)
-                fixes.append(f"[truncation] {rel}: Add LIMIT {limit} to queries to prevent context explosion")
+                fixes.append(
+                    f"[truncation] {rel}: Add LIMIT {limit}"
+                    " to queries to prevent context explosion"
+                )
 
     return fixes
 
 
-def _add_read_only_defaults(path: Path, dry_run: bool) -> list[str]:
+def _add_read_only_defaults(path: Path) -> list[str]:
     """Detect write operations that should be read-only by default."""
     import re
 
@@ -140,6 +146,9 @@ def _add_read_only_defaults(path: Path, dry_run: bool) -> list[str]:
         if dangerous_sql.search(content):
             if "read_only" not in content and "readonly" not in content:
                 rel = py_file.relative_to(path)
-                fixes.append(f"[read_only] {rel}: Add read-only mode (block INSERT/UPDATE/DELETE/DROP by default)")
+                fixes.append(
+                    f"[read_only] {rel}: Add read-only mode"
+                    " (block INSERT/UPDATE/DELETE/DROP by default)"
+                )
 
     return fixes

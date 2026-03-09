@@ -32,13 +32,16 @@ def run_eval(
     improved: str,
     scenarios_path: str | None = None,
     models: list[str] | None = None,
+    use_llm: bool = False,
 ):
     """Run before/after evaluation of tool selection accuracy."""
     models = models or ["claude-sonnet-4-20250514"]
+    engine = "LLM" if use_llm else "heuristic"
 
     console.print("\n[bold]Evaluating tool selection accuracy[/bold]")
     console.print(f"  Original: {original}")
     console.print(f"  Improved: {improved}")
+    console.print(f"  Engine:   {engine}")
     console.print(f"  Models:   {', '.join(models)}\n")
 
     # Load or generate scenarios
@@ -55,8 +58,8 @@ def run_eval(
     console.print(f"Running {len(scenarios)} scenarios × {len(models)} models...\n")
 
     # Run evaluations
-    original_results = _evaluate_server(Path(original), scenarios, models)
-    improved_results = _evaluate_server(Path(improved), scenarios, models)
+    original_results = _evaluate_server(Path(original), scenarios, models, use_llm)
+    improved_results = _evaluate_server(Path(improved), scenarios, models, use_llm)
 
     original_accuracy = (
         sum(1 for r in original_results if r.correct) / len(original_results)
@@ -104,7 +107,7 @@ def _auto_generate_scenarios(server_path: Path) -> list[dict]:
 
 
 def _evaluate_server(
-    server_path: Path, scenarios: list[dict], models: list[str]
+    server_path: Path, scenarios: list[dict], models: list[str], use_llm: bool = False,
 ) -> list[EvalResult]:
     """Evaluate tool selection for a server against scenarios."""
     from teeshield.scanner.description_quality import _extract_tools
@@ -115,13 +118,8 @@ def _evaluate_server(
 
     results: list[EvalResult] = []
 
-    try:
-        import anthropic
-
-        client = anthropic.Anthropic()
-    except ImportError:
-        console.print("[yellow]anthropic not installed -- using heuristic matching[/yellow]")
-        # Fallback: simple keyword matching
+    # Heuristic mode (default): fast, free, no API key needed
+    if not use_llm:
         for scenario in scenarios:
             for model in models:
                 best_match = _heuristic_match(scenario["intent"], tools)
@@ -135,6 +133,15 @@ def _evaluate_server(
                     )
                 )
         return results
+
+    # LLM mode: requires anthropic SDK + API key
+    try:
+        import anthropic
+
+        client = anthropic.Anthropic()
+    except ImportError:
+        console.print("[red]--llm requires: pip install teeshield[ai][/red]")
+        raise SystemExit(1)
 
     # LLM-based evaluation
     tool_descriptions = "\n".join(

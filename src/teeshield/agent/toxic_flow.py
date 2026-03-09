@@ -1,19 +1,24 @@
-"""Toxic Flow heuristic -- detect dangerous tool capability combinations.
+"""Toxic Flow detection -- dangerous tool capability combinations.
 
-Classifies tool/skill capabilities by role (data_source, public_sink, destructive)
-and flags dangerous combinations that indicate exfiltration or destructive flows.
+Two engines:
+  v1 (keyword): Regex on SKILL.md text.  Fast, always available.
+  v2 (AST):     Python ``ast`` analysis of source code.  Traces actual
+                 function calls (open/requests.post/os.remove) inside each
+                 function body and flags source→sink or source→destructive
+                 combinations at the function level.
+
+Classifies capabilities by role (data_source, public_sink, destructive)
+and flags dangerous combinations indicating exfiltration or destructive flows.
 
 Inspired by MCPhound TF analysis and Snyk ToxicSkills research.
-
-Classification is keyword-based on SKILL.md content -- not 100% accurate but
-catches common dangerous patterns with low false-positive rate.
 """
 
 from __future__ import annotations
 
+import ast
 import re
 from dataclasses import dataclass, field
-
+from pathlib import Path
 
 # --- Capability classification keywords ---
 
@@ -176,4 +181,261 @@ def detect_toxic_flows(content: str) -> list[ToxicFlow]:
             sinks=classification.destructive,
         ))
 
+    return flows
+
+
+# ---------------------------------------------------------------------------
+# v2: AST-level toxic flow detection for Python source code
+# ---------------------------------------------------------------------------
+
+# Qualified call patterns → (role, label)
+# Matches are checked against `module.func` or `func` strings built from AST.
+_AST_DATA_SOURCES: list[tuple[str, str]] = [
+    ("open", "open()"),
+    ("builtins.open", "open()"),
+    ("Path.read_text", "Path.read_text()"),
+    ("Path.read_bytes", "Path.read_bytes()"),
+    ("pathlib.Path.read_text", "Path.read_text()"),
+    ("pathlib.Path.read_bytes", "Path.read_bytes()"),
+    ("os.environ.get", "os.environ.get()"),
+    ("os.environ", "os.environ"),
+    ("os.getenv", "os.getenv()"),
+    ("dotenv.load_dotenv", "dotenv.load_dotenv()"),
+    ("sqlite3.connect", "sqlite3.connect()"),
+    ("cursor.execute", "cursor.execute()"),
+    ("cursor.fetchall", "cursor.fetchall()"),
+    ("cursor.fetchone", "cursor.fetchone()"),
+    ("subprocess.run", "subprocess.run()"),
+    ("subprocess.check_output", "subprocess.check_output()"),
+    ("subprocess.Popen", "subprocess.Popen()"),
+    ("json.load", "json.load()"),
+    ("json.loads", "json.loads()"),
+    ("yaml.safe_load", "yaml.safe_load()"),
+    ("yaml.load", "yaml.load()"),
+    ("configparser.ConfigParser", "ConfigParser()"),
+    ("glob.glob", "glob.glob()"),
+    ("os.listdir", "os.listdir()"),
+    ("os.walk", "os.walk()"),
+    ("Path.iterdir", "Path.iterdir()"),
+    ("Path.glob", "Path.glob()"),
+    ("Path.rglob", "Path.rglob()"),
+    ("keyring.get_password", "keyring.get_password()"),
+    ("getpass.getpass", "getpass.getpass()"),
+]
+
+_AST_PUBLIC_SINKS: list[tuple[str, str]] = [
+    ("requests.post", "requests.post()"),
+    ("requests.put", "requests.put()"),
+    ("requests.patch", "requests.patch()"),
+    ("httpx.post", "httpx.post()"),
+    ("httpx.put", "httpx.put()"),
+    ("httpx.AsyncClient.post", "httpx.post()"),
+    ("urllib.request.urlopen", "urllib.urlopen()"),
+    ("urllib.request.Request", "urllib.Request()"),
+    ("aiohttp.ClientSession.post", "aiohttp.post()"),
+    ("smtplib.SMTP", "smtplib.SMTP()"),
+    ("smtplib.SMTP.sendmail", "smtplib.sendmail()"),
+    ("socket.socket", "socket.socket()"),
+    ("paramiko.SSHClient", "paramiko.SSHClient()"),
+    ("slack_sdk.WebClient.chat_postMessage", "slack.post_message()"),
+    ("boto3.client", "boto3.client()"),
+    ("uploadfile", "upload_file()"),
+]
+
+_AST_DESTRUCTIVE: list[tuple[str, str]] = [
+    ("os.remove", "os.remove()"),
+    ("os.unlink", "os.unlink()"),
+    ("os.rmdir", "os.rmdir()"),
+    ("os.system", "os.system()"),
+    ("shutil.rmtree", "shutil.rmtree()"),
+    ("shutil.move", "shutil.move()"),
+    ("Path.unlink", "Path.unlink()"),
+    ("Path.rmdir", "Path.rmdir()"),
+    ("Path.write_text", "Path.write_text()"),
+    ("Path.write_bytes", "Path.write_bytes()"),
+    ("subprocess.run", "subprocess.run()"),
+    ("subprocess.call", "subprocess.call()"),
+    ("os.chmod", "os.chmod()"),
+    ("os.chown", "os.chown()"),
+    ("os.kill", "os.kill()"),
+    ("os.truncate", "os.truncate()"),
+]
+
+
+def _resolve_call(node: ast.Call) -> str:
+    """Resolve an ast.Call node to a dotted name string (best-effort).
+
+    Handles: ``os.remove()``, ``Path("x").read_text()``, ``open()``.
+    For chained calls like ``Path("x").unlink()``, resolves to ``Path.unlink``.
+    """
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        parts: list[str] = [func.attr]
+        val = func.value
+        while isinstance(val, ast.Attribute):
+            parts.append(val.attr)
+            val = val.value
+        if isinstance(val, ast.Name):
+            parts.append(val.id)
+        elif isinstance(val, ast.Call):
+            # Handle chained calls: Path("x").read_text() → Path.read_text
+            inner = _resolve_call(val)
+            if inner:
+                # Take only the final name (e.g. "Path" from "pathlib.Path")
+                parts.append(inner.rsplit(".", 1)[-1])
+        return ".".join(reversed(parts))
+    return ""
+
+
+class _FlowVisitor(ast.NodeVisitor):
+    """Walk a function body and collect classified call sites."""
+
+    def __init__(self) -> None:
+        self.sources: list[str] = []
+        self.sinks: list[str] = []
+        self.destructive: list[str] = []
+
+    def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
+        name = _resolve_call(node)
+        if not name:
+            self.generic_visit(node)
+            return
+
+        for pattern, label in _AST_DATA_SOURCES:
+            if name == pattern or name.endswith("." + pattern):
+                if label not in self.sources:
+                    self.sources.append(label)
+                break
+
+        for pattern, label in _AST_PUBLIC_SINKS:
+            if name == pattern or name.endswith("." + pattern):
+                if label not in self.sinks:
+                    self.sinks.append(label)
+                break
+
+        for pattern, label in _AST_DESTRUCTIVE:
+            if name == pattern or name.endswith("." + pattern):
+                if label not in self.destructive:
+                    self.destructive.append(label)
+                break
+
+        self.generic_visit(node)
+
+    # Also catch os.environ["KEY"] (subscript access, not a call)
+    def visit_Subscript(self, node: ast.Subscript) -> None:  # noqa: N802
+        if isinstance(node.value, ast.Attribute):
+            if (
+                isinstance(node.value.value, ast.Name)
+                and node.value.value.id == "os"
+                and node.value.attr == "environ"
+            ):
+                label = "os.environ[]"
+                if label not in self.sources:
+                    self.sources.append(label)
+        self.generic_visit(node)
+
+
+def detect_toxic_flows_ast(source: str | Path) -> list[ToxicFlow]:
+    """Detect toxic flows by parsing Python source code with AST.
+
+    Analyses each function/method body independently.  If a single function
+    contains both data-source calls and public-sink (or destructive) calls,
+    it is flagged as a toxic flow.
+
+    Args:
+        source: Python source code string, or Path to a .py file.
+
+    Returns:
+        List of ToxicFlow findings (may be empty if safe).
+    """
+    if isinstance(source, Path):
+        try:
+            source = source.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return []
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+
+    flows: list[ToxicFlow] = []
+
+    # Collect functions and methods (top-level + nested in classes)
+    func_nodes: list[tuple[str, ast.AST]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            func_nodes.append((node.name, node))
+
+    # Also analyse module-level code (statements outside functions)
+    module_body = [
+        n for n in tree.body
+        if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    ]
+    if module_body:
+        # Create a synthetic module from top-level statements
+        mod = ast.Module(body=module_body, type_ignores=[])
+        func_nodes.append(("<module>", mod))
+
+    for func_name, func_node in func_nodes:
+        visitor = _FlowVisitor()
+        visitor.visit(func_node)
+
+        if visitor.sources and visitor.sinks:
+            flows.append(ToxicFlow(
+                flow_type="exfiltration",
+                description=(
+                    f"Function '{func_name}' reads data "
+                    f"({', '.join(visitor.sources[:3])}) AND sends externally "
+                    f"({', '.join(visitor.sinks[:3])}). "
+                    f"Potential data exfiltration flow (AST analysis)."
+                ),
+                sources=visitor.sources,
+                sinks=visitor.sinks,
+            ))
+
+        if visitor.sources and visitor.destructive:
+            # Exclude self-contained patterns: subprocess.run is both
+            # source and destructive, only flag when there is a DIFFERENT
+            # data source beyond subprocess itself.
+            non_subprocess_sources = [
+                s for s in visitor.sources
+                if "subprocess" not in s.lower()
+            ]
+            if non_subprocess_sources:
+                flows.append(ToxicFlow(
+                    flow_type="destructive",
+                    description=(
+                        f"Function '{func_name}' accesses data "
+                        f"({', '.join(non_subprocess_sources[:3])}) AND performs "
+                        f"destructive actions ({', '.join(visitor.destructive[:3])}). "
+                        f"Potential data destruction flow (AST analysis)."
+                    ),
+                    sources=non_subprocess_sources,
+                    sinks=visitor.destructive,
+                ))
+
+    return flows
+
+
+def detect_toxic_flows_in_dir(directory: Path) -> list[ToxicFlow]:
+    """Scan all Python files in a directory for AST-level toxic flows.
+
+    Skips test files, __pycache__, .venv, node_modules, etc.
+    """
+    skip_dirs = {
+        "node_modules", "__pycache__", ".venv", "venv", ".git",
+        "dist", "build", ".tox", ".mypy_cache",
+    }
+    skip_file_re = re.compile(r"^test_|_test\.py$", re.IGNORECASE)
+
+    flows: list[ToxicFlow] = []
+    for py_file in directory.rglob("*.py"):
+        if any(part in skip_dirs for part in py_file.parts):
+            continue
+        if skip_file_re.search(py_file.name):
+            continue
+        flows.extend(detect_toxic_flows_ast(py_file))
     return flows
