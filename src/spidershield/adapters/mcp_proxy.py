@@ -178,7 +178,7 @@ class MCPProxyGuard(AdapterBase):
     ) -> bool:
         """Terminal prompt for ESCALATE decisions."""
         print(
-            f"\n[SpiderShield] Tool call requires approval:",
+            "\n[SpiderShield] Tool call requires approval:",
             file=sys.stderr,
         )
         print(f"  Tool: {tool_name}", file=sys.stderr)

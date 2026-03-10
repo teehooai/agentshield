@@ -500,7 +500,10 @@ def parse_owner_repo(target: str) -> tuple[str, str]:
     raise ValueError(f"Cannot parse owner/repo from: {target}")
 
 
-def convert(spidershield_report: dict, owner: str, repo: str, github_meta: dict | None = None) -> dict:
+def convert(
+    spidershield_report: dict, owner: str, repo: str,
+    github_meta: dict | None = None,
+) -> dict:
     """Convert a SpiderShield ScanReport dict to SpiderRating ServerRating format."""
     start = time.time()
 
@@ -525,7 +528,8 @@ def convert(spidershield_report: dict, owner: str, repo: str, github_meta: dict 
 
     tool_count = spidershield_report.get("tool_count", 0)
     hard_constraint = detect_hard_constraints(
-        spidershield_report.get("security_issues", []), tool_count, spidershield_report.get("license"),
+        spidershield_report.get("security_issues", []),
+        tool_count, spidershield_report.get("license"),
     )
     grade = compute_grade(overall, hard_constraint)
 

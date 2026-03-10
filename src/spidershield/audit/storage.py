@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 
 @dataclass

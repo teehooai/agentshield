@@ -6,15 +6,11 @@ with the DLP engine and RuntimeGuard after_call() pipeline.
 
 from __future__ import annotations
 
-import pytest
-
+from spidershield.dlp.engine import DLPEngine
 from spidershield.dlp.prompt_injection import (
     PICategory,
-    PIMatch,
     detect_prompt_injection,
 )
-from spidershield.dlp.engine import DLPAction, DLPEngine
-
 
 # ---------------------------------------------------------------------------
 # Instruction Override Detection
@@ -283,8 +279,8 @@ class TestDLPEngineIntegration:
 
 class TestRuntimeGuardIntegration:
     def test_after_call_detects_pi(self) -> None:
-        from spidershield.guard.core import RuntimeGuard
         from spidershield.guard.context import CallContext
+        from spidershield.guard.core import RuntimeGuard
 
         engine = DLPEngine(action="redact")
         guard = RuntimeGuard(dlp_engine=engine)
@@ -302,8 +298,8 @@ class TestRuntimeGuardIntegration:
         assert "[REDACTED:" in result
 
     def test_after_call_blocks_system_tags(self) -> None:
-        from spidershield.guard.core import RuntimeGuard
         from spidershield.guard.context import CallContext
+        from spidershield.guard.core import RuntimeGuard
 
         engine = DLPEngine(action="block")
         guard = RuntimeGuard(dlp_engine=engine)
@@ -321,8 +317,8 @@ class TestRuntimeGuardIntegration:
         assert "[BLOCKED]" in result
 
     def test_after_call_clean_output_unchanged(self) -> None:
-        from spidershield.guard.core import RuntimeGuard
         from spidershield.guard.context import CallContext
+        from spidershield.guard.core import RuntimeGuard
 
         engine = DLPEngine(action="redact")
         guard = RuntimeGuard(dlp_engine=engine)

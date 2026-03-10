@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-
+from spidershield.dlp.engine import DLPAction, DLPEngine
 from spidershield.dlp.pii import PIIType, detect_pii
 from spidershield.dlp.secrets import SecretType, detect_secrets
-from spidershield.dlp.engine import DLPAction, DLPEngine, DLPResult
-
 
 # ---------------------------------------------------------------------------
 # PII Detection

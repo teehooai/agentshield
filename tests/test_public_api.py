@@ -7,13 +7,10 @@ Validates that:
 - Policy validate CLI command works
 """
 
-import json
-import tempfile
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-
 
 # ---------------------------------------------------------------------------
 # Import validation
@@ -45,11 +42,6 @@ class TestImports:
 
     def test_guard_subpackage_imports(self) -> None:
         from spidershield.guard import (
-            CallContext,
-            Decision,
-            InterceptResult,
-            PolicyEngine,
-            PolicyRule,
             RuntimeGuard,
         )
 

@@ -85,12 +85,11 @@ class TestMCPProxyGuard:
         from spidershield.adapters.mcp_proxy import MCPProxyGuard
 
         guard = RuntimeGuard()
-        proxy = MCPProxyGuard(guard)
+        MCPProxyGuard(guard)  # verify instantiation works
 
         # Simulate: client sends tools/list, should passthrough
         client_in = io.StringIO('{"jsonrpc":"2.0","id":1,"method":"tools/list"}\n')
-        server_in = io.StringIO()
-        client_out = io.StringIO()
+        server_in = io.StringIO()  # noqa: F841
 
         # Manually test the relay logic
         for line in client_in:

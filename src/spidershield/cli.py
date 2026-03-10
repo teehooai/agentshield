@@ -850,8 +850,8 @@ def policy_list() -> None:
     table = Table(title="Policy Presets")
     table.add_column("Name", style="cyan")
     table.add_column("Description")
-    table.add_row("strict", "Production/enterprise: deny shell, restrict filesystem, escalate writes")
-    table.add_row("balanced", "Development (default): block dangerous patterns, escalate borderline")
+    table.add_row("strict", "Production/enterprise: deny shell, restrict fs, escalate writes")
+    table.add_row("balanced", "Development (default): block dangerous patterns, escalate")
     table.add_row("permissive", "Trusted/debug: only block known-malicious, allow everything else")
     console.print(table)
 
@@ -959,7 +959,7 @@ def audit_group(ctx: click.Context, audit_dir: Path | None) -> None:
 
 
 @audit_group.command(name="show")
-@click.option("--last", "last_hours", type=float, default=None, help="Show entries from last N hours")
+@click.option("--last", "last_hours", type=float, default=None, help="Last N hours")
 @click.option("--session", "session_id", default=None, help="Filter by session ID")
 @click.option("--tool", "tool_name", default=None, help="Filter by tool name (substring match)")
 @click.option(

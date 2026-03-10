@@ -2,7 +2,7 @@
 
 from spidershield.guard.context import CallContext
 from spidershield.guard.core import RuntimeGuard as ToolInterceptor
-from spidershield.guard.decision import Decision, InterceptResult
+from spidershield.guard.decision import Decision
 from spidershield.guard.policy import PolicyEngine, PolicyRule
 
 

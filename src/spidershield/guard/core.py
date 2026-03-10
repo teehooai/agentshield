@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Any
 
 from .context import CallContext
-from .decision import Decision, InterceptResult
+from .decision import InterceptResult
 from .policy import PolicyEngine
 
 

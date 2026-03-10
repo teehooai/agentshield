@@ -12,12 +12,11 @@ from pathlib import Path
 import pytest
 
 from spidershield.adapters.base import AdapterBase, AdapterStats
-from spidershield.adapters.standalone import StandaloneGuard, run_standalone_guard
-from spidershield.adapters.mcp_proxy import MCPProxyGuard, run_mcp_proxy
+from spidershield.adapters.mcp_proxy import MCPProxyGuard
+from spidershield.adapters.standalone import StandaloneGuard
 from spidershield.guard.core import RuntimeGuard
-from spidershield.guard.decision import Decision, InterceptResult
+from spidershield.guard.decision import Decision
 from spidershield.guard.policy import PolicyEngine, PolicyRule
-
 
 # ---------------------------------------------------------------------------
 # AdapterBase tests
@@ -297,10 +296,7 @@ class TestEndToEnd:
         """Verify all adapter types are importable."""
         from spidershield.adapters import (
             AdapterBase,
-            AdapterStats,
-            MCPProxyGuard,
             StandaloneGuard,
-            run_mcp_proxy,
             run_standalone_guard,
         )
 
@@ -311,10 +307,7 @@ class TestEndToEnd:
     def test_dlp_imports(self) -> None:
         """Verify DLP module is importable."""
         from spidershield.dlp import (
-            DLPAction,
             DLPEngine,
-            PIIType,
-            SecretType,
             detect_pii,
             detect_secrets,
         )
@@ -332,6 +325,7 @@ class TestEndToEnd:
 class TestGuardCLI:
     def test_guard_help(self) -> None:
         from click.testing import CliRunner
+
         from spidershield.cli import main
 
         runner = CliRunner()
@@ -343,6 +337,7 @@ class TestGuardCLI:
 
     def test_proxy_help_has_dry_run(self) -> None:
         from click.testing import CliRunner
+
         from spidershield.cli import main
 
         runner = CliRunner()

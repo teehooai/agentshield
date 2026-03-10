@@ -6,7 +6,12 @@ import os
 from unittest.mock import patch
 
 from spidershield.rewriter.prompt import REWRITE_SYSTEM_PROMPT, build_rewrite_prompt
-from spidershield.rewriter.quality_gate import GateResult, _quick_score, diagnose_missing, quality_gate
+from spidershield.rewriter.quality_gate import (
+    GateResult,
+    _quick_score,
+    diagnose_missing,
+    quality_gate,
+)
 from spidershield.rewriter.runner import _rewrite_local
 
 # --- Template engine bug fixes ---

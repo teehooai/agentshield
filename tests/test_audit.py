@@ -1,7 +1,6 @@
 """Tests for the SpiderShield Audit Engine (logger + storage + CLI)."""
 
 import json
-import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -11,7 +10,6 @@ from click.testing import CliRunner
 from spidershield.audit.logger import AuditLogger
 from spidershield.audit.storage import AuditQuery, AuditStats
 from spidershield.cli import main
-
 
 # ---------------------------------------------------------------------------
 # AuditLogger tests

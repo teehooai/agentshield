@@ -19,9 +19,9 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from .pii import PIIMatch, PIIType, detect_pii
-from .prompt_injection import PICategory, PIMatch, detect_prompt_injection
-from .secrets import SecretMatch, SecretType, detect_secrets
+from .pii import detect_pii
+from .prompt_injection import detect_prompt_injection
+from .secrets import detect_secrets
 
 
 class DLPAction(StrEnum):

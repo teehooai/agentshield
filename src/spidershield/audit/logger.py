@@ -12,7 +12,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-
 _DEFAULT_AUDIT_DIR = Path.home() / ".spidershield" / "audit"
 
 
