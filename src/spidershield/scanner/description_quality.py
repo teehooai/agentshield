@@ -27,6 +27,10 @@ _ACTION_VERBS = (
     "rebuild", "redeploy", "rollback", "promote", "demote", "fork", "clone",
     "sync", "refresh", "flush", "clear", "purge", "truncate", "aggregate",
     "batch", "stream", "emit", "broadcast", "notify", "alert", "warn",
+    "mark", "unmark", "complete", "finish", "finalize", "capture", "record",
+    "extract", "inject", "intercept", "redirect", "forward", "navigate",
+    "fill", "click", "hover", "drag", "press", "type", "select", "focus",
+    "enable", "disable", "toggle", "lock", "unlock",
 )
 
 

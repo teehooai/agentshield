@@ -153,6 +153,29 @@ def quality_gate(
     return GateResult(passed=True, description=rewritten, score=new_score)
 
 
+def verify_disambiguation(desc: str, sibling_tools: list[dict]) -> list[str]:
+    """Verify that tool names referenced in 'Do not use when' actually exist.
+
+    Returns a list of warnings (empty = all references valid).
+    Prevents hallucinated tool names from reaching PRs.
+    """
+    if not sibling_tools:
+        return []
+
+    sibling_names = {t["name"].lower() for t in sibling_tools}
+
+    # Extract "use X instead" references from the description
+    refs = re.findall(r"use\s+(\w+)\s+instead", desc, re.IGNORECASE)
+    warnings = []
+    for ref in refs:
+        if ref.lower() not in sibling_names:
+            warnings.append(
+                f"Referenced tool '{ref}' in 'Do not use when' does not exist "
+                f"in sibling tools. Valid tools: {', '.join(sorted(sibling_names)[:5])}"
+            )
+    return warnings
+
+
 def diagnose_missing(desc: str, min_score: float = 9.8) -> list[str]:
     """Identify which scoring criteria are missing from a description.
 
@@ -208,6 +231,18 @@ def diagnose_missing(desc: str, min_score: float = 9.8) -> list[str]:
             '(e.g., "Raises an error if the table does not exist.").'
         )
 
+    has_disambiguation = bool(re.search(
+        r"(?:do not use when|avoid (?:this )?when|not (?:intended|designed) for"
+        r"|prefer .+? instead|use .+? instead(?:\b|[.,]))",
+        desc, re.I,
+    ))
+    if not has_disambiguation:
+        hints.append(
+            "Missing DISAMBIGUATION: Add a sentence like "
+            '"Do not use when [condition] (use [alternative_tool] instead)." '
+            "to distinguish this tool from overlapping sibling tools."
+        )
+
     score = _quick_score(desc)
     if score >= min_score:
         return []  # Already meets threshold
@@ -236,6 +271,12 @@ def _quick_score(desc: str) -> float:
         re.search(r"--\w+", desc)
     )
 
+    has_disambiguation = bool(re.search(
+        r"(?:do not use when|avoid (?:this )?when|not (?:intended|designed) for"
+        r"|prefer .+? instead|use .+? instead(?:\b|[.,]))",
+        desc, re.I,
+    ))
+
     length_score = 1.0
     if len(desc) < 20:
         length_score = 0.2
@@ -252,7 +293,7 @@ def _quick_score(desc: str) -> float:
         + (1.0 if has_param_docs else 0.0) * 1.5
         + (1.0 if has_examples else 0.0) * 1.5
         + (1.0 if has_error else 0.0) * 1.0
-        + 1.0 * 1.0  # assume decent disambiguation for rewrites
+        + (1.0 if has_disambiguation else 0.0) * 1.0
         + length_score * 0.5
     )
     score = raw_score * _semantic_density(desc)

@@ -5,6 +5,11 @@ v2 improvements (E2, 2026-03-11):
 - Explicit mandatory requirements for SCENARIO TRIGGER (highest weight 3.0)
 - Template draft + missing-signal diagnosis passed as starting context
 - Score target made explicit (9.8/10) with per-criterion breakdown
+
+v2.5 improvements (2026-03-11):
+- DISAMBIGUATION criterion now requires explicit "Do not use when" sentence
+- Disambiguation score is no longer assumed (was hardcoded 1.0); must be earned
+- Few-shot GOOD examples updated to include boundary sentence
 """
 
 from __future__ import annotations
@@ -23,7 +28,9 @@ SCORING RUBRIC (max 10.0 — you need all of these):
      e.g., 'e.g., "main" or "feature/login-redesign"'
   5. ERROR GUIDANCE (1.0): One failure mode with "Raises" or "fails if" or "Returns error"
      e.g., "Raises an error if the table does not exist."
-  6. DISAMBIGUATION (1.0): If similar tools exist, one sentence on when to prefer THIS tool
+  6. DISAMBIGUATION (1.0): MANDATORY when sibling tools exist — add one sentence:
+     "Do not use when [condition] (use [alternative_tool] instead)."
+     e.g., "Do not use when the task requires entering text into a field (use fill instead)."
   7. LENGTH (0.5): Aim for 80-200 characters
 
 FEW-SHOT EXAMPLES (perfect 10.0 descriptions):
@@ -31,7 +38,8 @@ FEW-SHOT EXAMPLES (perfect 10.0 descriptions):
 BAD (score 1.5/10): "Get issues."
 GOOD (score 10.0/10): "List open or closed issues for a GitHub repository. \
 Use when the user wants to browse, filter, or review existing issues by state, \
-label, or assignee. Accepts `owner` (required), `repo` (required), `state` \
+label, or assignee. Do not use when you need to create a new issue (use \
+create_issue instead). Accepts `owner` (required), `repo` (required), `state` \
 (optional: \\"open\\" or \\"closed\\"), and `labels` (optional comma-separated string). \
 e.g., owner=\\"octocat\\", repo=\\"hello-world\\", state=\\"open\\". \
 Raises an error if the repository is private and the token lacks read access."
@@ -39,13 +47,15 @@ Raises an error if the repository is private and the token lacks read access."
 BAD (score 2.8/10): "Execute a SQL query against the database."
 GOOD (score 10.0/10): "Execute a SQL query against the connected database and \
 return the result rows. Use when the user wants to read or inspect data using \
-a custom SQL statement. Accepts `sql` (required, string), e.g., \
+a custom SQL statement. Do not use when you need to list available tables \
+(use list_tables instead). Accepts `sql` (required, string), e.g., \
 \\'SELECT * FROM users LIMIT 10\\'. Raises an error if the connection is not \
 established or the query contains a syntax error."
 
 MANDATORY RULES:
 - The "Use when the user wants to ..." sentence MUST appear — no exceptions
 - NEVER write tautological triggers: "Use when the user wants to {just restate the tool name}"
+- If sibling tools are listed, you MUST add "Do not use when [condition] (use [tool] instead)."
 - NEVER add generic security advice unrelated to the tool
 - Preserve the original tool's semantics — do not broaden scope
 - Return ONLY the description text — no markdown, no bullet points, no labels

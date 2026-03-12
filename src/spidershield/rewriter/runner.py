@@ -201,6 +201,74 @@ def _extract_params(tool: dict) -> list[dict] | None:
     return params
 
 
+_SEMANTIC_JUDGE_PROMPT = """\
+You are verifying whether a rewritten MCP tool description is semantically accurate.
+Answer with a JSON object only — no extra text.
+
+Fields:
+  preserves_meaning: true if the rewrite keeps the original tool's core purpose intact
+  disambiguation_accurate: true if the "Do not use when" condition correctly distinguishes
+    this tool from the referenced sibling, or true if no "Do not use when" is present
+  issues: list of short strings describing any problems found (empty list if none)
+
+Return only valid JSON, e.g.:
+{"preserves_meaning": true, "disambiguation_accurate": true, "issues": []}
+"""
+
+
+def _verify_semantics(
+    tool_name: str,
+    original_desc: str,
+    rewritten: str,
+    sibling_tools: list[dict],
+    provider,
+) -> list[str]:
+    """LLM-as-judge: verify the rewrite is semantically accurate.
+
+    Returns a list of issues (empty = passed).
+    Uses the same provider already instantiated for rewriting.
+    """
+    import json as _json
+
+    sibling_summary = ", ".join(
+        f"{t['name']}: {t.get('description', '')[:60]}"
+        for t in sibling_tools
+        if t["name"] != tool_name
+    )[:400]
+
+    user_prompt = (
+        f"Tool name: {tool_name}\n"
+        f"Original description: {original_desc}\n"
+        f"Rewritten description: {rewritten}\n"
+        f"Sibling tools: {sibling_summary or 'none'}\n\n"
+        "Verify and return JSON."
+    )
+
+    try:
+        raw = provider.complete(_SEMANTIC_JUDGE_PROMPT, user_prompt, max_tokens=200)
+        # Extract JSON from response (handle markdown code fences)
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not match:
+            return []  # Can't parse — don't block
+        data = _json.loads(match.group())
+    except Exception:
+        return []  # Judge failed — don't block rewrite
+
+    issues = []
+    if not data.get("preserves_meaning", True):
+        issues.append(
+            "SEMANTIC ERROR: Rewrite changes the tool's core purpose. "
+            "Preserve the original meaning while improving clarity."
+        )
+    if not data.get("disambiguation_accurate", True):
+        issues.append(
+            "SEMANTIC ERROR: 'Do not use when' condition is inaccurate or misleading. "
+            "Fix the boundary condition to correctly distinguish from sibling tools."
+        )
+    issues.extend(data.get("issues", []))
+    return issues
+
+
 def _rewrite_llm(
     tool: dict,
     all_tools: list[dict],
@@ -209,15 +277,20 @@ def _rewrite_llm(
     min_score: float = 9.8,
     max_retries: int = 2,
     use_cache: bool = True,
+    semantic_verify: bool = True,
 ) -> str:
     """Rewrite a single tool description using LLM provider with self-check loop.
 
-    Flow: check cache -> generate -> score -> if below min_score, diagnose -> retry -> cache.
+    Flow: check cache -> generate -> score -> verify semantics -> retry if needed -> cache.
     Maximum `max_retries` attempts total (1 initial + retries).
+
+    Args:
+        semantic_verify: If True, run LLM-as-judge semantic check after each generation.
+                         Disable in tests to avoid extra provider calls.
     """
     from .cache import get_cached, set_cached
     from .prompt import build_rewrite_prompt
-    from .quality_gate import _quick_score, diagnose_missing
+    from .quality_gate import _quick_score, diagnose_missing, verify_disambiguation
 
     tool_name = tool["name"]
     original_desc = tool.get("description", "")
@@ -252,22 +325,32 @@ def _rewrite_llm(
     result = provider.complete(system_prompt, user_prompt, max_tokens=500)
     score = _quick_score(result)
 
-    # Self-check loop: diagnose and retry if below threshold
+    # Verify disambiguation references point to real sibling tools
+    bad_refs = verify_disambiguation(result, siblings)
+    # Semantic check: verify meaning preservation and boundary accuracy
+    semantic_issues = (
+        _verify_semantics(tool_name, original_desc, result, siblings, provider)
+        if semantic_verify else []
+    )
+
+    # Self-check loop: retry if score low, bad references, or semantic issues
     for attempt in range(max_retries):
-        if score >= min_score:
+        if score >= min_score and not bad_refs and not semantic_issues:
             break
 
         hints = diagnose_missing(result, min_score)
+        hints.extend(bad_refs)
+        hints.extend(semantic_issues)
         if not hints:
-            break  # Score is fine or no actionable hints
+            break  # No actionable hints despite failed checks
 
         # Build retry prompt with specific feedback
         feedback = (
             f"SELF-CHECK FAILED: Your rewrite scored {score:.1f}/10 but needs "
             f"{min_score}/10.\n\n"
-            f"Missing criteria that MUST be added:\n"
+            f"Issues that MUST be fixed:\n"
             + "\n".join(f"- {h}" for h in hints)
-            + "\n\nIMPORTANT: You MUST address every missing criterion listed above. "
+            + "\n\nIMPORTANT: You MUST address every issue listed above. "
             "Each one adds significant score weight. For parameters, use `backtick` "
             "notation. For examples, use 'e.g.' prefix. For errors, use 'Raises' or "
             "'fails'. Return ONLY the improved description, nothing else."
@@ -276,6 +359,11 @@ def _rewrite_llm(
 
         result = provider.complete(system_prompt, retry_prompt, max_tokens=500)
         score = _quick_score(result)
+        bad_refs = verify_disambiguation(result, siblings)
+        semantic_issues = (
+            _verify_semantics(tool_name, original_desc, result, siblings, provider)
+            if semantic_verify else []
+        )
 
     # Cache the result
     if use_cache:

@@ -8,10 +8,14 @@ from pathlib import Path
 
 CACHE_DIR = Path.home() / ".spidershield" / "rewrite-cache"
 
+# Bump this version when the rewrite prompt changes significantly.
+# Invalidates all existing cache entries to force fresh rewrites.
+PROMPT_VERSION = "v2.5"
+
 
 def cache_key(tool_name: str, original_desc: str, model: str) -> str:
-    """Generate a deterministic cache key from tool name, description, and model."""
-    payload = f"{tool_name}|{original_desc}|{model}"
+    """Generate a deterministic cache key from tool name, description, model, and prompt version."""
+    payload = f"{PROMPT_VERSION}|{tool_name}|{original_desc}|{model}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

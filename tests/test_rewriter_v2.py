@@ -385,8 +385,10 @@ class TestDiagnoseMissing:
     def test_perfect_description_no_hints(self) -> None:
         desc = (
             "List all tables in the database schema. Use when the user wants to "
-            "discover available tables before writing queries. Accepts `schema_name` "
-            "parameter (e.g., 'public'). Raises an error if the schema does not exist."
+            "discover available tables before writing queries. "
+            "Do not use when you need to query data (use execute_sql instead). "
+            "Accepts `schema_name` parameter (e.g., 'public'). "
+            "Raises an error if the schema does not exist."
         )
         hints = diagnose_missing(desc)
         assert len(hints) == 0
@@ -411,18 +413,19 @@ class TestSelfCheckRetry:
                 nonlocal call_count
                 call_count += 1
                 if call_count == 1:
-                    # First attempt: mediocre (missing examples, error guidance)
+                    # First attempt: mediocre (missing examples, error guidance, disambiguation)
                     return (
                         "List all tables in the database. "
                         "Use when the user wants to discover available tables. "
                         "Accepts `schema_name` parameter."
                     )
                 else:
-                    # Retry: adds examples and error guidance
+                    # Retry: adds examples, error guidance, and disambiguation
                     return (
                         "List all tables in the database. "
                         "Use when the user wants to discover available tables "
                         "before writing queries. "
+                        "Do not use when you need to query data (use execute_sql instead). "
                         "Accepts `schema_name` parameter (e.g., 'public'). "
                         "Raises an error if the schema does not exist."
                     )
@@ -430,9 +433,10 @@ class TestSelfCheckRetry:
         from spidershield.rewriter.runner import _rewrite_llm
 
         tool = {"name": "list_tables", "description": "Lists tables."}
+        sibling = {"name": "execute_sql", "description": "Execute a SQL query."}
         result = _rewrite_llm(
-            tool, [tool], MockProvider(),
-            min_score=9.8, max_retries=2, use_cache=False,
+            tool, [tool, sibling], MockProvider(),
+            min_score=9.8, max_retries=2, use_cache=False, semantic_verify=False,
         )
         assert call_count == 2  # Should have retried
         assert "e.g." in result
@@ -450,6 +454,7 @@ class TestSelfCheckRetry:
                     "List all tables in the database schema. "
                     "Use when the user wants to discover available tables "
                     "before writing queries. "
+                    "Do not use when you need to query data (use execute_sql instead). "
                     "Accepts `schema_name` parameter (e.g., 'public'). "
                     "Raises an error if the schema does not exist."
                 )
@@ -457,7 +462,8 @@ class TestSelfCheckRetry:
         from spidershield.rewriter.runner import _rewrite_llm
 
         tool = {"name": "list_tables", "description": "Lists tables."}
-        _rewrite_llm(tool, [tool], MockProvider(), min_score=9.0, max_retries=2, use_cache=False)
+        sibling = {"name": "execute_sql", "description": "Execute a SQL query."}
+        _rewrite_llm(tool, [tool, sibling], MockProvider(), min_score=9.0, max_retries=2, use_cache=False, semantic_verify=False)
         assert call_count == 1  # No retry needed
 
     def test_max_retries_respected(self) -> None:
@@ -473,5 +479,5 @@ class TestSelfCheckRetry:
         from spidershield.rewriter.runner import _rewrite_llm
 
         tool = {"name": "list_tables", "description": "Lists tables."}
-        _rewrite_llm(tool, [tool], MockProvider(), min_score=9.8, max_retries=3, use_cache=False)
+        _rewrite_llm(tool, [tool], MockProvider(), min_score=9.8, max_retries=3, use_cache=False, semantic_verify=False)
         assert call_count == 4  # 1 initial + 3 retries
