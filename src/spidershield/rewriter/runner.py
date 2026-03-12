@@ -414,6 +414,13 @@ def run_rewrite(
 
     console.print()
 
+    # Compute aggregate scores for callers (pipeline/cli.py unpacks this)
+    orig_scores = [_quick_score(r.get("original", "")) for r in results]
+    new_scores = [_quick_score(r.get("rewritten", "")) for r in results]
+    score_before = sum(orig_scores) / len(orig_scores) if orig_scores else 0.0
+    score_after = sum(new_scores) / len(new_scores) if new_scores else 0.0
+    return results, score_before, score_after
+
 
 def _print_comparison(results: list[dict]):
     """Print a before/after comparison table."""
