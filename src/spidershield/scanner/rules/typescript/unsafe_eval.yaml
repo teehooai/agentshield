@@ -1,0 +1,36 @@
+rules:
+  - id: mcp-ts-new-function
+    pattern: new Function(...)
+    message: Dynamic code execution via new Function() — user input may run arbitrary code
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: ts_unsafe_eval
+      severity_level: critical
+      fix: "Avoid new Function(); use structured data parsing instead"
+
+  - id: mcp-ts-eval-variable
+    patterns:
+      - pattern: eval($X)
+      - pattern-not: eval("...")
+      - pattern-not: eval('...')
+      - pattern-not: eval(`...`)
+    message: Dynamic code execution via eval() with non-literal argument
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: ts_unsafe_eval
+      severity_level: critical
+      fix: "Avoid eval; use structured data parsing instead"
+
+  - id: mcp-ts-vm-run
+    patterns:
+      - pattern: vm.runInNewContext(...)
+      - pattern: vm.runInThisContext(...)
+    message: Dynamic code execution via Node.js vm module
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: ts_unsafe_eval
+      severity_level: critical
+      fix: "Avoid vm.runIn*Context(); use structured evaluation instead"

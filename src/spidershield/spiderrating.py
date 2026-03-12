@@ -16,6 +16,18 @@ import urllib.request
 from datetime import UTC, datetime
 from importlib.metadata import version as _pkg_version
 
+from spidershield.scoring_spec import (
+    ARCHITECTURE_BONUS_MAX,
+    DESC_WEIGHTS,
+    META_WEIGHTS,
+    SEVERITY_PENALTIES,
+    spec_architecture_bonus,
+    spec_description_composite,
+    spec_grade,
+    spec_metadata_composite,
+    spec_overall,
+)
+
 
 def _get_version() -> str:
     """Get spidershield package version."""
@@ -102,7 +114,7 @@ def compute_metadata_score(meta: dict) -> dict:
     elif forks >= 20:
         popularity = min(10.0, popularity + 0.5)
 
-    composite = round(provenance * 0.4 + maintenance * 0.35 + popularity * 0.25, 1)
+    composite = round(spec_metadata_composite(provenance, maintenance, popularity), 1)
     return {
         "provenance": round(provenance, 1),
         "maintenance": round(maintenance, 1),
@@ -142,10 +154,13 @@ def map_description_dimensions(tool_scores: list[dict]) -> dict:
     capability_disclosure = ((examples_count / n) * 0.6 + avg_disambig * 0.4) * 10.0
     operational_boundaries = avg_overall
 
-    composite = round(
-        intent_clarity * 0.25 + permission_scope * 0.20 + side_effects * 0.20
-        + capability_disclosure * 0.15 + operational_boundaries * 0.20, 1,
-    )
+    composite = round(spec_description_composite({
+        "intent_clarity": intent_clarity,
+        "permission_scope": permission_scope,
+        "side_effects": side_effects,
+        "capability_disclosure": capability_disclosure,
+        "operational_boundaries": operational_boundaries,
+    }), 1)
     return {
         "intent_clarity": round(intent_clarity, 1),
         "permission_scope": round(permission_scope, 1),
@@ -167,7 +182,7 @@ def map_security(
     medium = sum(1 for i in security_issues if i.get("severity") == "medium")
     low = sum(1 for i in security_issues if i.get("severity") == "low")
 
-    arch_bonus = min(3.0, architecture_score * 0.3)
+    arch_bonus = spec_architecture_bonus(architecture_score)
     # Adjust for SpiderRating's softer low penalty (0.25 vs SpiderShield's 0.5)
     adjusted = min(10.0, security_score + low * 0.25)
 
@@ -191,22 +206,17 @@ def map_security(
 
 
 def compute_grade(overall: float, hard_constraint: str | None) -> str:
-    """Compute SpiderRating grade (F/D/C/B/A)."""
+    """Compute SpiderRating grade (F/D/C/B/A).
+
+    Uses spec_grade() for threshold logic; applies local hard constraints.
+    """
     if hard_constraint and hard_constraint in (
         "critical_vulnerability", "no_tools", "known_malicious",
     ):
         return "F"
     if hard_constraint == "license_banned":
         return "D" if overall >= 4.0 else "F"
-    if overall >= 8.5:
-        return "A"
-    if overall >= 7.0:
-        return "B"
-    if overall >= 5.0:
-        return "C"
-    if overall >= 3.0:
-        return "D"
-    return "F"
+    return spec_grade(overall)
 
 
 def detect_hard_constraints(
@@ -306,10 +316,13 @@ def score_skill_description(content: str) -> dict:
         + length_score
     )
 
-    composite = round(
-        intent_clarity * 0.25 + permission_scope * 0.20 + side_effects * 0.20
-        + capability_disclosure * 0.15 + operational_boundaries * 0.20, 1,
-    )
+    composite = round(spec_description_composite({
+        "intent_clarity": intent_clarity,
+        "permission_scope": permission_scope,
+        "side_effects": side_effects,
+        "capability_disclosure": capability_disclosure,
+        "operational_boundaries": operational_boundaries,
+    }), 1)
     return {
         "intent_clarity": round(intent_clarity, 1),
         "permission_scope": round(permission_scope, 1),
@@ -436,12 +449,8 @@ def convert_skill(
     # Metadata from GitHub
     metadata = compute_metadata_score(github_meta)
 
-    # SpiderRating weights: 35/35/30
-    overall = round(
-        description["composite"] * 0.35
-        + security["score"] * 0.35
-        + metadata["composite"] * 0.30, 1,
-    )
+    # SpiderRating weights (default: 35/35/30)
+    overall = spec_overall(description["composite"], security["score"], metadata["composite"])
 
     # Hard constraints for skills
     hard_constraint = None
@@ -492,6 +501,7 @@ def convert_skill(
         },
         "tools": [],
         "tool_count": 0,
+        "score_type": "local",
         "meta": {
             "scanner": "spidershield",
             "scanner_version": _get_version(),
@@ -535,12 +545,8 @@ def convert(
     )
     metadata = compute_metadata_score(github_meta)
 
-    # SpiderRating weights: 35/35/30
-    overall = round(
-        description["composite"] * 0.35
-        + security["score"] * 0.35
-        + metadata["composite"] * 0.30, 1,
-    )
+    # SpiderRating weights (default: 35/35/30)
+    overall = spec_overall(description["composite"], security["score"], metadata["composite"])
 
     tool_count = spidershield_report.get("tool_count", 0)
     hard_constraint = detect_hard_constraints(
@@ -602,6 +608,7 @@ def convert(
         },
         "tools": tools,
         "tool_count": tool_count,
+        "score_type": "local",
         "meta": {
             "scanner": "spidershield",
             "scanner_version": _get_version(),

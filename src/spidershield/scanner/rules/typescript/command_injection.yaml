@@ -1,0 +1,48 @@
+rules:
+  - id: mcp-ts-child-process-exec-template
+    pattern: child_process.exec(`...${...}...`, ...)
+    message: Command injection — child_process.exec() with template literal interpolation
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: child_process_injection
+      severity_level: critical
+      fix: "Use child_process.execFile or spawn with explicit argument arrays"
+
+  - id: mcp-ts-child-process-exec-variable
+    patterns:
+      - pattern: child_process.exec($CMD, ...)
+      - pattern-not: child_process.exec("...", ...)
+      - pattern-not: child_process.exec('...', ...)
+      - pattern-not: child_process.exec(`...`, ...)
+    message: Command injection — child_process.exec() with non-literal command
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: child_process_injection
+      severity_level: critical
+      fix: "Use child_process.execFile or spawn with explicit argument arrays"
+
+  - id: mcp-ts-exec-sync-template
+    pattern: execSync(`...${...}...`, ...)
+    message: Command injection — execSync() with template literal interpolation
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: child_process_injection
+      severity_level: critical
+      fix: "Use spawnSync with explicit argument arrays instead of execSync"
+
+  - id: mcp-ts-exec-sync-variable
+    patterns:
+      - pattern: execSync($CMD, ...)
+      - pattern-not: execSync("...", ...)
+      - pattern-not: execSync('...', ...)
+      - pattern-not: execSync(`...`, ...)
+    message: Command injection — execSync() with non-literal command
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: child_process_injection
+      severity_level: critical
+      fix: "Use spawnSync with explicit argument arrays instead of execSync"

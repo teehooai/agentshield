@@ -1,4 +1,11 @@
-"""Static security scanning for MCP servers."""
+"""Static security scanning for MCP servers.
+
+Detection uses a hybrid strategy:
+- If Semgrep is installed: AST-aware Semgrep rules handle the highest-FP
+  categories (dangerous_eval, command_injection, sql_injection and their TS
+  equivalents).  Regex is disabled for those categories to avoid duplicates.
+- If Semgrep is absent: pure regex for all categories (existing behaviour).
+"""
 
 from __future__ import annotations
 
@@ -6,6 +13,11 @@ import re
 from pathlib import Path
 
 from spidershield.models import SecurityIssue
+from .semgrep_scan import (
+    SEMGREP_AVAILABLE,
+    SEMGREP_COVERED_CATEGORIES,
+    run_semgrep,
+)
 
 # Patterns that indicate security risks
 DANGEROUS_PATTERNS = {
@@ -38,8 +50,10 @@ DANGEROUS_PATTERNS = {
         "patterns": [
             # exec/eval with variable input (not string literals)
             # Word boundary (?<!\w) prevents matching run_eval(), etc.
-            r"(?<!\w)exec\(\s*(?![\"\'])",
-            r"(?<!\w)eval\(\s*(?![\"\'])",
+            # Negative lookbehind (?<!\.) excludes method calls like RegExp.exec(),
+            # cursor.execute(), db.execute() — only flags bare exec()/eval() calls.
+            r"(?<!\w)(?<!\.)exec\(\s*(?![\"\'])",
+            r"(?<!\w)(?<!\.)eval\(\s*(?![\"\'])",
         ],
         "severity": "critical",
         "description": "Dynamic code execution -- user input may be executed as code",
@@ -75,9 +89,11 @@ DANGEROUS_PATTERNS = {
     },
     "hardcoded_credential": {
         "patterns": [
-            # Only flag hardcoded secrets outside docstrings/comments
-            # Require assignment-like context (not inside triple-quoted strings)
-            r'^[^#\n]*(?:api_key|token|secret|password)\s*=\s*["\'][^"\']{8,}',
+            # Only flag hardcoded secrets outside docstrings/comments.
+            # Exclude obvious placeholder/example values (common in README,
+            # .env.example, and docstrings): values containing "example",
+            # "placeholder", "your_", "changeme", "xxxx", "<", or all-same char.
+            r'^[^#\n]*(?:api_key|token|secret|password)\s*=\s*["\'](?!.*(?:example|placeholder|your_|changeme|xxxxxx|<[A-Z_]+>))[^"\']{8,}',
         ],
         "severity": "high",
         "description": "Hardcoded credential -- secret value embedded in source code",
@@ -99,7 +115,9 @@ DANGEROUS_PATTERNS = {
         "patterns": [
             r"requests\.(?:get|post|put|delete)\([^)]*(?:url|endpoint)",
             r"httpx\.(?:get|post|put|delete)\([^)]*(?:url|endpoint)",
-            r"fetch\([^)]*(?:url|endpoint)",
+            # fetch() is too broad — it's a standard API in JS/TS. Only flag Python
+            # urllib/requests patterns. JS/TS fetch() is covered by manual review
+            # since agent frameworks legitimately fetch user-provided URLs.
         ],
         "severity": "medium",
         "description": "Potential SSRF -- unrestricted network requests with user-controlled URLs",
@@ -160,7 +178,9 @@ TS_DANGEROUS_PATTERNS = {
     "ts_unsafe_eval": {
         "patterns": [
             r"new\s+Function\(",
-            r"eval\(",
+            # eval( — exclude method calls like RegExp.exec(), cursor.execute(),
+            # and exclude word boundaries (e.g. retrieval, interval)
+            r"(?<!\w)(?<!\.)eval\(\s*(?!['\"])",
             r"vm\.runInNewContext\(",
             r"vm\.runInThisContext\(",
         ],
@@ -182,7 +202,10 @@ TS_DANGEROUS_PATTERNS = {
     },
     "ts_path_traversal": {
         "patterns": [
-            r"path\.join\([^)]*(?:req\.|params\.|query\.|body\.|input|args)",
+            # Only flag path.join with HTTP request inputs (req.params, req.query,
+            # req.body) — not generic function params. which are usually safe internal
+            # parameters in TS codebases. Also exclude test helper files.
+            r"path\.join\([^)]*(?:req\.(?:params|query|body|path)|ctx\.(?:params|query))",
             r"fs\.(?:readFile|writeFile|unlink|rmdir|mkdir)(?:Sync)?\([^)]*\+",
         ],
         "severity": "high",
@@ -195,12 +218,72 @@ TS_DANGEROUS_PATTERNS = {
 }
 
 
+def _scope_to_mcp_dir(root: Path, files: list[Path]) -> list[Path]:
+    """Limit scanning scope to MCP-related directories in monorepos.
+
+    If the repo has a clear MCP subdirectory (e.g. packages/mcp-server/,
+    src/mcp/, server/), prefer files from that subtree. This prevents
+    scanning unrelated SDKs, frameworks, or platform code that happen to
+    live in the same repo.
+    """
+    if len(files) <= 50:
+        return files  # Small repo, no need to scope
+
+    # Look for MCP-indicator directories
+    mcp_keywords = {"mcp", "server", "tool", "plugin", "agent-toolkit"}
+    mcp_dirs: list[Path] = []
+
+    for f in files:
+        rel_parts = f.relative_to(root).parts
+        for part in rel_parts[:-1]:  # skip filename
+            if any(kw in part.lower() for kw in mcp_keywords):
+                # Get the directory up to and including this part
+                idx = rel_parts.index(part)
+                mcp_dir = root / Path(*rel_parts[: idx + 1])
+                if mcp_dir not in mcp_dirs:
+                    mcp_dirs.append(mcp_dir)
+
+    if not mcp_dirs:
+        return files  # No MCP subdirectory detected
+
+    # Filter to files under MCP directories
+    scoped = [
+        f for f in files
+        if any(_is_under(f, d) for d in mcp_dirs)
+    ]
+
+    # Only apply scoping if it meaningfully reduces the set
+    # (if >80% of files would remain, scoping isn't useful)
+    if len(scoped) >= len(files) * 0.8 or len(scoped) == 0:
+        return files
+
+    return scoped
+
+
+def _is_under(file_path: Path, dir_path: Path) -> bool:
+    """Check if file_path is under dir_path."""
+    try:
+        file_path.relative_to(dir_path)
+        return True
+    except ValueError:
+        return False
+
+
 def scan_security(path: Path) -> tuple[float, list[SecurityIssue]]:
     """Scan for security issues in Python and TypeScript files.
 
     Returns (security_score, list_of_issues).
+
+    When Semgrep is installed, AST-aware rules replace regex for the highest-FP
+    categories so duplicate findings are not emitted.
     """
     issues: list[SecurityIssue] = []
+
+    # --- Semgrep pass (AST-aware, higher precision) ---
+    semgrep_issues: list[SecurityIssue] = []
+    if SEMGREP_AVAILABLE:
+        semgrep_issues = run_semgrep(path)
+        issues.extend(semgrep_issues)
 
     source_files = list(path.rglob("*.py")) + list(path.rglob("*.ts")) + list(path.rglob("*.js"))
     # Exclude non-source directories from security scanning
@@ -208,6 +291,14 @@ def scan_security(path: Path) -> tuple[float, list[SecurityIssue]]:
         "node_modules", "__pycache__", "__tests__", "tests", "test",
         ".git", "dist", "build", ".venv", "venv", ".tox",
         ".mypy_cache", "examples", "example",
+        # S3 scope limiting: exclude benchmarks, fixtures, vendor, docs
+        "benchmarks", "benchmark", "fixtures", "fixture",
+        "vendor", "third_party", "third-party", "external",
+        "docs", "doc", "documentation",
+        "spec", "e2e", "integration_tests",
+        ".next", ".nuxt", ".cache", "coverage",
+        # Dev tooling: setup/migration/seed scripts are not MCP tool code
+        "scripts", "migrations", "migration", "seeds", "seed",
     }
     source_files = [
         f for f in source_files
@@ -217,7 +308,16 @@ def scan_security(path: Path) -> tuple[float, list[SecurityIssue]]:
         and not f.name.endswith(".test.js")
         and not f.name.endswith(".spec.ts")
         and not f.name.endswith(".spec.js")
+        and not f.name.endswith(".d.ts")  # type definitions, not source
+        and not f.name.endswith(".min.js")  # minified bundles
+        and not f.name.startswith("_test.")  # Go test files
+        and not f.name.endswith("_test.go")  # Go test files
     ]
+
+    # S3: Monorepo scope limiting — if we can identify the MCP-specific subdir,
+    # limit scanning to only that directory to avoid false positives from
+    # unrelated framework code (e.g. entire Stripe SDK, Vercel AI SDK)
+    source_files = _scope_to_mcp_dir(path, source_files)
 
     for source_file in source_files:
         try:
@@ -228,8 +328,16 @@ def scan_security(path: Path) -> tuple[float, list[SecurityIssue]]:
         rel_path = str(source_file.relative_to(path))
         is_ts_js = source_file.suffix in (".ts", ".js")
 
-        # Check universal patterns
+        # Check universal patterns (Python-oriented; skip Python-only
+        # rules like dangerous_eval and sql_injection on TS/JS files
+        # to avoid false positives from RegExp.exec(), cursor.execute(), etc.)
+        # Also skip categories already covered by Semgrep to avoid duplicates.
+        _PY_ONLY_RULES = {"dangerous_eval", "sql_injection", "unsafe_deserialization"}
         for category, config in DANGEROUS_PATTERNS.items():
+            if is_ts_js and category in _PY_ONLY_RULES:
+                continue
+            if SEMGREP_AVAILABLE and category in SEMGREP_COVERED_CATEGORIES:
+                continue  # Semgrep handles this category with higher precision
             flags = re.IGNORECASE if category != "sql_injection" else 0
             for pattern in config["patterns"]:
                 for match in re.finditer(pattern, content, flags):
@@ -245,9 +353,11 @@ def scan_security(path: Path) -> tuple[float, list[SecurityIssue]]:
                         )
                     )
 
-        # Check TS/JS-specific patterns
+        # Check TS/JS-specific patterns (skip Semgrep-covered categories)
         if is_ts_js:
             for category, config in TS_DANGEROUS_PATTERNS.items():
+                if SEMGREP_AVAILABLE and category in SEMGREP_COVERED_CATEGORIES:
+                    continue  # Semgrep handles this category
                 for pattern in config["patterns"]:
                     for match in re.finditer(pattern, content):
                         line_num = content[:match.start()].count("\n") + 1

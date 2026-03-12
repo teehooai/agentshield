@@ -41,6 +41,9 @@ ai = [
     "openai>=1.0",
     "google-generativeai>=0.5",
 ]
+semgrep = [
+    "semgrep>=1.60",
+]
 
 [project.scripts]
 spidershield = "spidershield.cli:main"

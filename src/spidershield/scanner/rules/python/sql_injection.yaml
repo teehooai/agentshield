@@ -1,0 +1,40 @@
+rules:
+  - id: mcp-sql-execute-fstring
+    pattern: $DB.execute(f"...", ...)
+    message: SQL injection — .execute() called with f-string (user input may reach query)
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: sql_injection
+      severity_level: critical
+      fix: "Use parameterized queries with placeholder syntax (?, %s, :name)"
+
+  - id: mcp-sql-execute-fstring-single
+    pattern: $DB.execute(f'...', ...)
+    message: SQL injection — .execute() called with f-string (user input may reach query)
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: sql_injection
+      severity_level: critical
+      fix: "Use parameterized queries with placeholder syntax (?, %s, :name)"
+
+  - id: mcp-sql-execute-concat
+    pattern: $DB.execute($A + $B, ...)
+    message: SQL injection — .execute() called with string concatenation
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: sql_injection
+      severity_level: critical
+      fix: "Use parameterized queries with placeholder syntax"
+
+  - id: mcp-sql-execute-format
+    pattern: $DB.execute($Q % $ARGS, ...)
+    message: SQL injection — .execute() called with %-format interpolation
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: sql_injection
+      severity_level: critical
+      fix: "Use parameterized queries; pass args as second argument to execute()"

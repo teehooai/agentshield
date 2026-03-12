@@ -178,25 +178,83 @@ def score_descriptions(
     return round(avg_score, 1), scores, tool_names
 
 
+def _extract_fastmcp_kwarg_tools(content: str) -> list[dict]:
+    """Extract tools from FastMCP @mcp.tool(description="...") decorator-kwarg style.
+
+    Uses paren-depth scanning instead of greedy regex to safely handle nested
+    parentheses (e.g. annotations=ToolAnnotations(...)) without backtracking.
+    """
+    tools: list[dict] = []
+    # Find all @<name>.tool( positions
+    dec_pat = re.compile(r'@(?:mcp|server|app|fastmcp)\.tool\(')
+    desc_pat = re.compile(r'description\s*=\s*(?:"([^"]*?)"|\'([^\']*?)\'|"""(.*?)""")', re.DOTALL)
+    def_pat = re.compile(r'(?:async\s+)?def\s+(\w+)')
+
+    for dec_match in dec_pat.finditer(content):
+        start = dec_match.end()  # position after opening '('
+        # Scan forward tracking paren depth to find matching ')'
+        depth = 1
+        i = start
+        while i < len(content) and depth > 0:
+            ch = content[i]
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth -= 1
+            i += 1
+        # content[start:i-1] is the decorator body
+        dec_body = content[start:i - 1]
+
+        # Look for description= kwarg inside the decorator body
+        dm = desc_pat.search(dec_body)
+        if dm is None:
+            continue
+        desc = (dm.group(1) or dm.group(2) or dm.group(3) or "").strip()
+
+        # Look for 'def func_name' in the next ~100 chars after the decorator close
+        after_dec = content[i:i + 100]
+        fm = def_pat.search(after_dec)
+        if fm is None:
+            continue
+        name = fm.group(1)
+        if name:
+            tools.append({"name": name, "description": desc})
+
+    return tools
+
+
 def _extract_tools(path: Path) -> list[dict]:
-    """Extract tool definitions from Python or TypeScript MCP server code."""
+    """Extract tool definitions from Python, TypeScript, Go, and Rust MCP server code."""
     tools: list[dict] = []
 
     skip_dirs = {
-        "node_modules", "__pycache__", ".venv", "venv", ".git",
-        "dist", "build", ".tox", ".mypy_cache",
+        "node_modules", "__pycache__", ".venv", "venv", "env", ".env",
+        ".git", "dist", "build", ".tox", ".mypy_cache",
+        "site-packages", ".nox",
+        # Exclude test directories to avoid extracting test fixtures as real tools
+        "tests", "test", "__tests__", "spec", "fixtures", "fixture",
+        "benchmarks", "benchmark", "testdata", "test_data",
+        "e2e", "integration_tests",
     }
+
+    # Monorepo detection: if path has many subdirs with their own package files,
+    # try to find MCP-related subdirectories and prioritize those
+    mcp_subdirs = _find_mcp_subdirs(path)
+    search_root = path
 
     # Python: look for @tool or @server.tool decorators
     for py_file in path.rglob("*.py"):
         if any(part in skip_dirs for part in py_file.parts):
+            continue
+        # Skip test files by name
+        if py_file.name.startswith("test_") or py_file.name.endswith("_test.py"):
             continue
         try:
             content = py_file.read_text(errors="ignore")
         except OSError:
             continue
 
-        # FastMCP style: @mcp.tool() or @server.tool()
+        # FastMCP style: @mcp.tool() or @server.tool() with description in docstring
         tool_pattern = re.finditer(
             r'@(?:mcp|server|app)\.tool\(?\)?\s*(?:async\s+)?def\s+(\w+)\s*\([^)]*\).*?"""(.*?)"""',
             content,
@@ -204,6 +262,14 @@ def _extract_tools(path: Path) -> list[dict]:
         )
         for match in tool_pattern:
             tools.append({"name": match.group(1), "description": match.group(2).strip()})
+
+        # FastMCP style with description kwarg: @mcp.tool(description="...", annotations=...)
+        # postgres-mcp / FastMCP pattern where description is passed as a decorator kwarg.
+        # Use depth-tracking scan to handle nested parens (e.g. annotations=Foo(...))
+        # safely — avoids catastrophic backtracking with greedy .*? + DOTALL.
+        for fastmcp_tool in _extract_fastmcp_kwarg_tools(content):
+            if fastmcp_tool["name"] not in [t["name"] for t in tools]:
+                tools.append(fastmcp_tool)
 
         # Decorated style: @tool
         tool_pattern2 = re.finditer(
@@ -245,6 +311,11 @@ def _extract_tools(path: Path) -> list[dict]:
     for ts_file in list(path.rglob("*.ts")) + list(path.rglob("*.js")):
         if any(part in skip_dirs for part in ts_file.parts):
             continue
+        # Skip test files and type definitions
+        if (ts_file.name.endswith(".test.ts") or ts_file.name.endswith(".test.js")
+                or ts_file.name.endswith(".spec.ts") or ts_file.name.endswith(".spec.js")
+                or ts_file.name.endswith(".d.ts")):
+            continue
         try:
             content = ts_file.read_text(errors="ignore")
         except OSError:
@@ -273,25 +344,34 @@ def _extract_tools(path: Path) -> list[dict]:
                 tools.append({"name": name, "description": desc})
                 existing_names.add(name)
 
-        # Pattern 2: server.registerTool("name", { description: "..." })
+        # Pattern 2: server.registerTool("name", { description: "..." | `...` })
+        # Note: tool names can contain hyphens (e.g., "resolve-library-id")
         reg_pattern = re.finditer(
-            r"server\.registerTool\(\s*['\"](\w+)['\"]\s*,\s*\{[^}]*?description:\s*\n?\s*((?:['\"][^'\"]*['\"](?:\s*\+\s*['\"][^'\"]*['\"])*)|['\"][^'\"]*['\"])",
+            r"server\.registerTool\(\s*['\"]([a-zA-Z_][\w-]*)['\"]"
+            r"\s*,\s*\{[^}]*?description:\s*\n?\s*"
+            r"(?:`([^`]+)`|((?:['\"][^'\"]*['\"](?:\s*\+\s*['\"][^'\"]*['\"])*))|['\"]([^'\"]*)['\"])",
             content,
             re.DOTALL,
         )
         for match in reg_pattern:
             name = match.group(1)
-            raw_desc = match.group(2)
-            desc = "".join(re.findall(r"['\"]([^'\"]*)['\"]", raw_desc))
+            if match.group(2):  # backtick template literal
+                desc = re.sub(r"\s*\n\s*", " ", match.group(2)).strip()
+            elif match.group(3):  # concatenated strings
+                desc = "".join(re.findall(r"['\"]([^'\"]*)['\"]", match.group(3)))
+            else:  # simple quoted string
+                desc = (match.group(4) or "").strip()
             if name not in existing_names:
                 tools.append({"name": name, "description": desc.strip()})
                 existing_names.add(name)
 
         # Pattern 3: Object with name + description properties (Neon/PostgreSQL style)
         # Matches: { name: 'tool_name' (as const)?, ..., description: '...' | `...` }
+        # Limit span to 400 chars to avoid spanning across unrelated objects (e.g.
+        # Server constructor name matching a later tool's description).
         obj_tool_pattern = re.finditer(
             r"name:\s*(?:'([^']*)'|\"([^\"]*)\")\s*(?:as\s+const)?\s*,"
-            r".*?description:\s*(?:'([^']*)'|\"([^\"]*)\"|`([^`]*)`)",
+            r"(?:[^}]{0,400}?)description:\s*(?:'([^']*)'|\"([^\"]*)\"|`([^`]*)`)",
             content,
             re.DOTALL,
         )
@@ -342,6 +422,282 @@ def _extract_tools(path: Path) -> list[dict]:
             if name in skip_names:
                 continue
             if name not in existing_names:
+                tools.append({"name": name, "description": desc})
+                existing_names.add(name)
+
+        # Pattern 6: McpServer.tool() — @modelcontextprotocol/sdk pattern
+        # McpServer instance may be named mcpServer, server, etc.
+        # e.g. server.tool("name", { ... }, async (args) => { ... })
+        #      server.tool("name", "description", { ... }, handler)
+        #      server.tool("name", `multi-line template description`, { ... }, handler)
+        ts_tool_str = re.finditer(
+            r'\.tool\(\s*["\']([a-zA-Z_][\w-]*)["\']'
+            r'\s*,\s*(?:["\']([^"\']+)["\']|`([^`]+)`)',
+            content,
+            re.DOTALL,
+        )
+        for match in ts_tool_str:
+            name = match.group(1)
+            desc = (match.group(2) or match.group(3) or "").strip()
+            # Clean up multi-line template literals
+            desc = re.sub(r"\s*\n\s*", " ", desc).strip()
+            if name not in existing_names:
+                tools.append({"name": name, "description": desc})
+                existing_names.add(name)
+
+        # Pattern 7: zodFunction / z.object tool definitions
+        # e.g. { name: "tool_name", description: "...", parameters: z.object({...}) }
+        # Limit span to prevent matching server constructor name against a later description.
+        zod_pattern = re.finditer(
+            r'name:\s*["\']([a-zA-Z_][\w-]*)["\']'
+            r'[^}]{0,300}?description:\s*["\']([^"\']+)["\']'
+            r'[^}]{0,300}?(?:parameters|schema|inputSchema)\s*:',
+            content,
+            re.DOTALL,
+        )
+        for match in zod_pattern:
+            name = match.group(1)
+            desc = match.group(2).strip()
+            if name not in existing_names:
+                tools.append({"name": name, "description": desc})
+                existing_names.add(name)
+
+        # Pattern 8: const name = "tool-name"; const config = { description: "..." };
+        #            server.registerTool(name, config, handler)
+        # Used in mcp-official/everything server — each tool in its own file with variable-based registration.
+        # Safety: only activates when registerTool is called with `name` as a variable (not a string literal).
+        if re.search(r'registerTool\(\s*\n?\s*name\s*,', content):
+            name_match = re.search(r'const name\s*=\s*["\']([a-zA-Z_][\w-]*)["\']', content)
+            desc_match = re.search(r'description:\s*["\']([^"\']+)["\']', content)
+            if name_match:
+                p8_name = name_match.group(1)
+                p8_desc = desc_match.group(1).strip() if desc_match else ""
+                if p8_name not in existing_names:
+                    tools.append({"name": p8_name, "description": p8_desc})
+                    existing_names.add(p8_name)
+
+    # Go: look for tool definitions in .go files
+    existing_names = {t["name"] for t in tools}
+    for go_file in path.rglob("*.go"):
+        if any(part in skip_dirs for part in go_file.parts):
+            continue
+        # Skip Go test files
+        if go_file.name.endswith("_test.go"):
+            continue
+        try:
+            content = go_file.read_text(errors="ignore")
+        except OSError:
+            continue
+
+        # Go MCP SDK: mcp.NewTool("name", mcp.WithDescription("..."))
+        go_newtool = re.finditer(
+            r'mcp\.NewTool\(\s*["\']([a-zA-Z_][\w-]*)["\']'
+            r'.*?(?:WithDescription|mcp\.WithDescription)\(\s*["\']([^"\']+)["\']',
+            content,
+            re.DOTALL,
+        )
+        for match in go_newtool:
+            name = match.group(1)
+            desc = match.group(2).strip()
+            if name not in existing_names:
+                tools.append({"name": name, "description": desc})
+                existing_names.add(name)
+
+        # Go: mcp.Tool{Name: "...", Description: t("KEY", "desc")} or Description: "desc"
+        # Supports: direct strings, backtick strings, t() translation wrapper
+        go_tool_struct = re.finditer(
+            r'mcp\.Tool\s*\{[^}]*?Name:\s*(?:"([a-zA-Z_][\w-]*)"|`([a-zA-Z_][\w-]*)`)'
+            r'[^}]*?Description:\s*(?:'
+            r't\(\s*"[^"]*"\s*,\s*(?:"([^"]+)"|`([^`]+)`)\s*\)'  # t("KEY", "desc") or t("KEY", `desc`)
+            r'|"([^"]+)"'  # direct "desc"
+            r'|`([^`]+)`'  # direct `desc`
+            r')',
+            content,
+            re.DOTALL,
+        )
+        for match in go_tool_struct:
+            name = (match.group(1) or match.group(2) or "").strip()
+            desc = (match.group(3) or match.group(4) or match.group(5) or match.group(6) or "").strip()
+            # Clean up multi-line backtick strings
+            desc = re.sub(r"\s*\n\s*", " ", desc).strip()
+            if name and desc and name not in existing_names:
+                tools.append({"name": name, "description": desc})
+                existing_names.add(name)
+
+        # Go: server.AddTool(mcp.Tool{Name: "...", Description: "..."})
+        # (fallback for simpler struct patterns without t() wrapper)
+        go_addtool = re.finditer(
+            r'(?:mcp\.)?Tool\s*\{[^}]*?Name:\s*["\']([a-zA-Z_][\w-]*)["\']'
+            r'[^}]*?Description:\s*["\']([^"\']+)["\']',
+            content,
+            re.DOTALL,
+        )
+        for match in go_addtool:
+            name = match.group(1)
+            desc = match.group(2).strip()
+            if name not in existing_names:
+                tools.append({"name": name, "description": desc})
+                existing_names.add(name)
+
+        # Go: s.AddTool("name", "description", handler)
+        go_addtool2 = re.finditer(
+            r'\.(?:AddTool|RegisterTool)\(\s*["\']([a-zA-Z_][\w-]*)["\']'
+            r'\s*,\s*["\']([^"\']+)["\']',
+            content,
+        )
+        for match in go_addtool2:
+            name = match.group(1)
+            desc = match.group(2).strip()
+            if name not in existing_names:
+                tools.append({"name": name, "description": desc})
+                existing_names.add(name)
+
+        # Go: ToolDefinition{Name: "...", Description: "..."}
+        go_tooldef = re.finditer(
+            r'ToolDefinition\s*\{[^}]*?Name:\s*["\']([a-zA-Z_][\w-]*)["\']'
+            r'[^}]*?Description:\s*["\']([^"\']+)["\']',
+            content,
+            re.DOTALL,
+        )
+        for match in go_tooldef:
+            name = match.group(1)
+            desc = match.group(2).strip()
+            if name not in existing_names:
+                tools.append({"name": name, "description": desc})
+                existing_names.add(name)
+
+    # Rust: look for tool definitions in .rs files
+    for rs_file in path.rglob("*.rs"):
+        if any(part in skip_dirs for part in rs_file.parts):
+            continue
+        try:
+            content = rs_file.read_text(errors="ignore")
+        except OSError:
+            continue
+
+        # Rust: #[tool(description = "...")] or #[mcp_tool(...)]
+        # followed by fn tool_name(...)
+        rust_attr = re.finditer(
+            r'#\[(?:tool|mcp_tool)\s*\([^)]*?description\s*=\s*"([^"]+)"[^)]*\)\]'
+            r'\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)',
+            content,
+            re.DOTALL,
+        )
+        for match in rust_attr:
+            desc = match.group(1).strip()
+            name = match.group(2)
+            if name not in existing_names:
+                tools.append({"name": name, "description": desc})
+                existing_names.add(name)
+
+        # Rust: Tool::new("name", "description")
+        rust_new = re.finditer(
+            r'Tool::new\(\s*"([a-zA-Z_][\w-]*)"\s*,\s*"([^"]+)"',
+            content,
+        )
+        for match in rust_new:
+            name = match.group(1)
+            desc = match.group(2).strip()
+            if name not in existing_names:
+                tools.append({"name": name, "description": desc})
+                existing_names.add(name)
+
+        # Rust: ToolBuilder::new("name").description("...")
+        rust_builder = re.finditer(
+            r'ToolBuilder::new\(\s*"([a-zA-Z_][\w-]*)"\s*\)'
+            r'.*?\.description\(\s*"([^"]+)"',
+            content,
+            re.DOTALL,
+        )
+        for match in rust_builder:
+            name = match.group(1)
+            desc = match.group(2).strip()
+            if name not in existing_names:
+                tools.append({"name": name, "description": desc})
+                existing_names.add(name)
+
+    # Fallback: if no tools found via code parsing, try README extraction
+    if not tools:
+        tools = _extract_tools_from_readme(path)
+
+    return tools
+
+
+def _find_mcp_subdirs(path: Path) -> list[Path]:
+    """Detect monorepo structure and find MCP-related subdirectories."""
+    # Look for subdirectories that contain MCP server code
+    mcp_indicators = [
+        "mcp", "server", "tool", "plugin",
+    ]
+    subdirs: list[Path] = []
+    for child in path.iterdir():
+        if not child.is_dir() or child.name.startswith("."):
+            continue
+        name_lower = child.name.lower()
+        if any(ind in name_lower for ind in mcp_indicators):
+            subdirs.append(child)
+    return subdirs
+
+
+def _extract_tools_from_readme(path: Path) -> list[dict]:
+    """Fallback: extract tool names from README when code parsing fails.
+
+    Many MCP servers document their tools in README with patterns like:
+    - `tool_name` - Description
+    - **tool_name**: Description
+    - | tool_name | Description |
+    """
+    tools: list[dict] = []
+    existing_names: set[str] = set()
+
+    for readme_name in ("README.md", "readme.md", "README.rst"):
+        readme = path / readme_name
+        if not readme.exists():
+            continue
+        try:
+            content = readme.read_text(errors="ignore")
+        except OSError:
+            continue
+
+        # Look for a tools/commands section
+        tools_section = re.search(
+            r"(?:^#{1,3}\s+(?:Tools|Commands|Available Tools|API|Functions).*?\n)"
+            r"(.*?)(?=\n#{1,3}\s|\Z)",
+            content,
+            re.MULTILINE | re.DOTALL | re.IGNORECASE,
+        )
+        if not tools_section:
+            continue
+
+        section = tools_section.group(1)
+
+        # Pattern: `tool_name` - description  or  **tool_name** - description
+        readme_tools = re.finditer(
+            r"^\s*[-*]?\s*(?:`([a-zA-Z_][\w-]*)`|"
+            r"\*\*([a-zA-Z_][\w-]*)\*\*)"
+            r"\s*[-:–—]\s*(.+)",
+            section,
+            re.MULTILINE,
+        )
+        for match in readme_tools:
+            name = (match.group(1) or match.group(2) or "").strip()
+            desc = match.group(3).strip()
+            if name and name not in existing_names and len(name) > 1:
+                tools.append({"name": name, "description": desc})
+                existing_names.add(name)
+
+        # Pattern: markdown table | tool_name | description |
+        table_tools = re.finditer(
+            r"\|\s*`?([a-zA-Z_][\w-]*)`?\s*\|\s*([^|]+)\|",
+            section,
+        )
+        for match in table_tools:
+            name = match.group(1).strip()
+            desc = match.group(2).strip()
+            # Skip header rows
+            if name.lower() in ("tool", "name", "command", "function", "---", ""):
+                continue
+            if name not in existing_names and len(name) > 1:
                 tools.append({"name": name, "description": desc})
                 existing_names.add(name)
 

@@ -249,3 +249,413 @@ def test_security_real_sql_injection_still_detected(tmp_path: Path):
     )
     score, issues = scan_security(tmp_path)
     assert any(i.category == "sql_injection" for i in issues)
+
+
+# --- S1: Go tool extraction tests ---
+
+def test_extract_go_newtool(tmp_path: Path):
+    """Go MCP SDK: mcp.NewTool("name", mcp.WithDescription("..."))."""
+    go_file = tmp_path / "server.go"
+    go_file.write_text('''package main
+
+import "github.com/mark3labs/mcp-go/mcp"
+
+func main() {
+    tool := mcp.NewTool("list_repos",
+        mcp.WithDescription("List all repositories for the authenticated user"),
+    )
+    tool2 := mcp.NewTool("get_file",
+        mcp.WithDescription("Get file contents from a repository"),
+    )
+}
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "list_repos" in names
+    assert "get_file" in names
+    assert len(names) == 2
+
+
+def test_extract_go_tool_struct(tmp_path: Path):
+    """Go: mcp.Tool{Name: "...", Description: "..."}."""
+    go_file = tmp_path / "tools.go"
+    go_file.write_text('''package tools
+
+import "github.com/mark3labs/mcp-go/mcp"
+
+var tools = []mcp.Tool{
+    mcp.Tool{Name: "search_issues", Description: "Search for issues across repositories"},
+    mcp.Tool{Name: "create_pr", Description: "Create a pull request in a repository"},
+}
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "search_issues" in names
+    assert "create_pr" in names
+
+
+def test_extract_go_addtool(tmp_path: Path):
+    """Go: server.AddTool("name", "description", handler)."""
+    go_file = tmp_path / "main.go"
+    go_file.write_text('''package main
+
+func main() {
+    s := server.NewMCPServer("grafana", "1.0")
+    s.AddTool("query_dashboard", "Query a Grafana dashboard by UID", handleQuery)
+    s.AddTool("list_alerts", "List all alert rules in Grafana", handleAlerts)
+}
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "query_dashboard" in names
+    assert "list_alerts" in names
+
+
+def test_extract_go_tool_with_t_wrapper(tmp_path: Path):
+    """Go: mcp.Tool{Name: "...", Description: t("KEY", "desc")} — github-mcp-server style."""
+    go_file = tmp_path / "pkg" / "github" / "issues.go"
+    go_file.parent.mkdir(parents=True)
+    go_file.write_text('''package github
+
+func IssueRead() {
+    return NewTool(
+        ToolsetMetadataIssues,
+        mcp.Tool{
+            Name:        "issue_read",
+            Description: t("TOOL_ISSUE_READ_DESCRIPTION", "Get information about a specific issue in a GitHub repository."),
+        },
+        handler,
+    )
+}
+
+func AddComment() {
+    return NewTool(
+        ToolsetMetadataIssues,
+        mcp.Tool{
+            Name:        "add_issue_comment",
+            Description: t("TOOL_ADD_ISSUE_COMMENT_DESCRIPTION", `Add a comment to a specific issue
+in a GitHub repository. Use this tool to add comments.`),
+        },
+        handler,
+    )
+}
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "issue_read" in names
+    assert "add_issue_comment" in names
+    assert len(names) == 2
+
+
+def test_extract_go_test_files_excluded(tmp_path: Path):
+    """Go test files (*_test.go) should NOT have tools extracted."""
+    # Real tool in source file
+    src_file = tmp_path / "server.go"
+    src_file.write_text('''package main
+func init() {
+    s.AddTool("real_tool", "A real tool", handler)
+}
+''')
+    # Fake tool in test file
+    test_file = tmp_path / "server_test.go"
+    test_file.write_text('''package main
+func TestTool() {
+    s.AddTool("test_tool", "A test fixture tool", handler)
+}
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "real_tool" in names
+    assert "test_tool" not in names
+
+
+def test_extract_ts_test_files_excluded(tmp_path: Path):
+    """TS test files (*.test.ts) should NOT have tools extracted."""
+    src_file = tmp_path / "server.ts"
+    src_file.write_text('''
+server.tool("real_tool", "A real tool", {}, handler);
+''')
+    test_file = tmp_path / "server.test.ts"
+    test_file.write_text('''
+server.tool("test_tool", "A test fixture", {}, handler);
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "real_tool" in names
+    assert "test_tool" not in names
+
+
+def test_extract_py_test_files_excluded(tmp_path: Path):
+    """Python test files (test_*.py) should NOT have tools extracted."""
+    src_file = tmp_path / "server.py"
+    src_file.write_text('''
+@server.tool()
+def real_tool():
+    """A real tool."""
+    pass
+''')
+    test_file = tmp_path / "test_server.py"
+    test_file.write_text('''
+@server.tool()
+def fake_tool():
+    """A test fixture tool."""
+    pass
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "real_tool" in names
+    assert "fake_tool" not in names
+
+
+def test_extract_test_dir_excluded(tmp_path: Path):
+    """Tools in tests/ directory should NOT be extracted."""
+    src_file = tmp_path / "server.py"
+    src_file.write_text('''
+@server.tool()
+def real_tool():
+    """A real tool."""
+    pass
+''')
+    test_dir = tmp_path / "tests"
+    test_dir.mkdir()
+    test_file = test_dir / "conftest.py"
+    test_file.write_text('''
+@server.tool()
+def fixture_tool():
+    """A test fixture."""
+    pass
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "real_tool" in names
+    assert "fixture_tool" not in names
+
+
+# --- S1: Rust tool extraction tests ---
+
+def test_extract_rust_tool_new(tmp_path: Path):
+    """Rust: Tool::new("name", "description")."""
+    rs_file = tmp_path / "tools.rs"
+    rs_file.write_text('''
+use mcp_sdk::Tool;
+
+fn register_tools() {
+    let tool1 = Tool::new("read_file", "Read the contents of a file at the given path");
+    let tool2 = Tool::new("write_file", "Write content to a file at the given path");
+}
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "read_file" in names
+    assert "write_file" in names
+
+
+def test_extract_rust_tool_attribute(tmp_path: Path):
+    """Rust: #[tool(description = "...")] fn name(...)."""
+    rs_file = tmp_path / "server.rs"
+    rs_file.write_text('''
+use mcp_derive::tool;
+
+#[tool(description = "List all files in a directory")]
+async fn list_files(path: &str) -> Result<Vec<String>> {
+    Ok(vec![])
+}
+
+#[tool(description = "Delete a file at the given path")]
+pub async fn delete_file(path: &str) -> Result<()> {
+    Ok(())
+}
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "list_files" in names
+    assert "delete_file" in names
+
+
+def test_extract_rust_tool_builder(tmp_path: Path):
+    """Rust: ToolBuilder::new("name").description("...")."""
+    rs_file = tmp_path / "main.rs"
+    rs_file.write_text('''
+fn register() {
+    let tool = ToolBuilder::new("search_code")
+        .description("Search for code patterns across the repository")
+        .build();
+}
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "search_code" in names
+
+
+# --- S1: Improved TS extraction tests ---
+
+def test_extract_ts_tool_with_string_description(tmp_path: Path):
+    """TS: server.tool("name", "description", ...)."""
+    ts_file = tmp_path / "server.ts"
+    ts_file.write_text('''
+const server = new McpServer("test");
+
+server.tool("search_repos", "Search GitHub repositories by query", {
+    query: z.string(),
+}, async (args) => {
+    return { content: [] };
+});
+
+server.tool("get_repo", "Get details of a specific GitHub repository", {
+    owner: z.string(),
+    repo: z.string(),
+}, async (args) => {
+    return { content: [] };
+});
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "search_repos" in names
+    assert "get_repo" in names
+
+
+def test_extract_ts_zod_tool_definitions(tmp_path: Path):
+    """TS: Zod-style tool definitions with name/description/parameters."""
+    ts_file = tmp_path / "tools.ts"
+    ts_file.write_text('''
+const tools = [
+    {
+        name: "execute_query",
+        description: "Execute a SQL query against the connected database",
+        parameters: z.object({
+            query: z.string(),
+        }),
+    },
+    {
+        name: "list_tables",
+        description: "List all tables in the current database schema",
+        parameters: z.object({}),
+    },
+];
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "execute_query" in names
+    assert "list_tables" in names
+
+
+# --- S1: README fallback extraction tests ---
+
+def test_extract_tools_from_readme_list(tmp_path: Path):
+    """Fallback: extract tools from README bullet list when code parsing fails."""
+    readme = tmp_path / "README.md"
+    readme.write_text('''# MCP Server
+
+## Tools
+
+- `search_files` - Search for files matching a pattern
+- `read_file` - Read the contents of a file
+- `write_file` - Write content to a file
+- `list_directory` - List contents of a directory
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "search_files" in names
+    assert "read_file" in names
+    assert "write_file" in names
+    assert "list_directory" in names
+
+
+def test_extract_tools_from_readme_table(tmp_path: Path):
+    """Fallback: extract tools from README markdown table."""
+    readme = tmp_path / "README.md"
+    readme.write_text('''# Terraform MCP Server
+
+## Tools
+
+| Tool | Description |
+|------|-------------|
+| plan | Run terraform plan on the current configuration |
+| apply | Apply terraform changes to infrastructure |
+| validate | Validate terraform configuration files |
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "plan" in names
+    assert "apply" in names
+    assert "validate" in names
+
+
+def test_extract_tools_readme_not_used_when_code_found(tmp_path: Path):
+    """README fallback should NOT be used when code extraction succeeds."""
+    py_file = tmp_path / "server.py"
+    py_file.write_text('''
+@server.tool()
+def real_tool():
+    """The real tool from code."""
+    pass
+''')
+    readme = tmp_path / "README.md"
+    readme.write_text('''# Server
+## Tools
+- `fake_tool` - This should not appear
+''')
+    score, tool_scores, names = score_descriptions(tmp_path)
+    assert "real_tool" in names
+    assert "fake_tool" not in names
+
+
+# --- S3: Scope limiting tests ---
+
+def test_security_benchmarks_excluded(tmp_path: Path):
+    """Files in benchmarks/ directory should not be scanned."""
+    bench_dir = tmp_path / "benchmarks"
+    bench_dir.mkdir()
+    py_file = bench_dir / "bench_eval.py"
+    py_file.write_text('import os\nos.system(cmd)\n')
+    score, issues = scan_security(tmp_path)
+    assert len(issues) == 0
+
+
+def test_security_fixtures_excluded(tmp_path: Path):
+    """Files in fixtures/ directory should not be scanned."""
+    fix_dir = tmp_path / "fixtures"
+    fix_dir.mkdir()
+    py_file = fix_dir / "vulnerable.py"
+    py_file.write_text('import os\nos.system(cmd)\n')
+    score, issues = scan_security(tmp_path)
+    assert len(issues) == 0
+
+
+def test_security_vendor_excluded(tmp_path: Path):
+    """Files in vendor/ directory should not be scanned."""
+    vendor_dir = tmp_path / "vendor"
+    vendor_dir.mkdir()
+    py_file = vendor_dir / "lib.py"
+    py_file.write_text('import os\nos.system(cmd)\n')
+    score, issues = scan_security(tmp_path)
+    assert len(issues) == 0
+
+
+def test_security_dts_excluded(tmp_path: Path):
+    """TypeScript .d.ts type definition files should not be scanned."""
+    ts_file = tmp_path / "types.d.ts"
+    ts_file.write_text('declare function eval(code: string): any;\n')
+    score, issues = scan_security(tmp_path)
+    assert len(issues) == 0
+
+
+def test_security_go_test_excluded(tmp_path: Path):
+    """Go test files (*_test.go) should not be scanned."""
+    go_dir = tmp_path / "src"
+    go_dir.mkdir()
+    # _test.go files should be excluded by the filename filter
+    test_file = go_dir / "handler_test.go"
+    test_file.write_text('package main\n// os.system(cmd)\n')
+    # test_ prefix files are excluded
+    py_test = tmp_path / "test_handler.py"
+    py_test.write_text('import os\nos.system(cmd)\n')
+    score, issues = scan_security(tmp_path)
+    assert len(issues) == 0
+
+
+def test_security_monorepo_scoping(tmp_path: Path):
+    """Monorepo: vulnerabilities in non-MCP code should be excluded when MCP dir exists."""
+    # Create a large non-MCP SDK directory
+    sdk_dir = tmp_path / "sdk"
+    sdk_dir.mkdir()
+    for i in range(60):
+        (sdk_dir / f"module_{i}.py").write_text(
+            f'def func_{i}():\n    return "safe"\n'
+        )
+    # Add a vulnerability in the SDK
+    (sdk_dir / "dangerous.py").write_text('import os\nos.system(cmd)\n')
+
+    # Create MCP server directory
+    mcp_dir = tmp_path / "mcp-server"
+    mcp_dir.mkdir()
+    (mcp_dir / "server.py").write_text('def handle():\n    return "ok"\n')
+
+    score, issues = scan_security(tmp_path)
+    # The vulnerability in sdk/ should be scoped out since mcp-server/ exists
+    assert not any(i.file.startswith("sdk") for i in issues)

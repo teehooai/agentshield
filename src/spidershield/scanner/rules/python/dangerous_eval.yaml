@@ -1,0 +1,26 @@
+rules:
+  - id: mcp-dangerous-eval
+    patterns:
+      - pattern: eval($X)
+      - pattern-not: eval("...")
+      - pattern-not: eval('...')
+    message: Dynamic code execution via eval() with non-literal argument
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: dangerous_eval
+      severity_level: critical
+      fix: "Use ast.literal_eval for data parsing, or avoid eval entirely"
+
+  - id: mcp-dangerous-exec
+    patterns:
+      - pattern: exec($X)
+      - pattern-not: exec("...")
+      - pattern-not: exec('...')
+    message: Dynamic code execution via exec() with non-literal argument
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: dangerous_eval
+      severity_level: critical
+      fix: "Avoid exec(); refactor to use explicit function dispatch"

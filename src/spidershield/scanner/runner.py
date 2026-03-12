@@ -13,6 +13,7 @@ from spidershield.scanner.architecture_check import check_architecture
 from spidershield.scanner.description_quality import score_descriptions
 from spidershield.scanner.license_check import check_license
 from spidershield.scanner.security_scan import scan_security
+from spidershield.scoring_spec import spec_architecture_bonus, spec_grade
 
 console = Console()
 stderr_console = Console(file=sys.stderr)
@@ -76,8 +77,8 @@ def run_scan_report(target: str, tools_json: str | None = None) -> ScanReport:
 
     # SpiderRating formula: description 35% + security 35% + architecture 30%
     # Architecture replaces metadata locally (metadata requires GitHub API).
-    # Architecture bonus (0-3) also folds into security for richer signal.
-    arch_bonus = min(3.0, arch_score * 0.3)
+    # Architecture bonus (0-2) also folds into security for richer signal.
+    arch_bonus = spec_architecture_bonus(arch_score)
     security_adjusted = min(10.0, security_score + arch_bonus)
     overall = (desc_score * 0.35 + security_adjusted * 0.35 + arch_score * 0.30)
     improvement_potential = 10.0 - overall
@@ -95,21 +96,13 @@ def run_scan_report(target: str, tools_json: str | None = None) -> ScanReport:
         if license_info and license_info.upper() in {lic.upper() for lic in banned}:
             hard_constraint = "license_banned"
 
-    # SpiderRating grade boundaries: A>=8.5, B>=7.0, C>=5.0, D>=3.0, F<3.0
+    # Grade from scoring spec (hard constraints handled locally for CLI)
     if hard_constraint in ("critical_vulnerability", "no_tools"):
         rating = Rating.F
     elif hard_constraint == "license_banned":
         rating = Rating.D if overall >= 3.0 else Rating.F
-    elif overall >= 8.5:
-        rating = Rating.A
-    elif overall >= 7.0:
-        rating = Rating.B
-    elif overall >= 5.0:
-        rating = Rating.C
-    elif overall >= 3.0:
-        rating = Rating.D
     else:
-        rating = Rating.F
+        rating = Rating(spec_grade(overall))
 
     recommendations = []
     if desc_score < 6.0:
@@ -233,7 +226,7 @@ def _severity_color(severity: str) -> str:
 def _print_table(report: ScanReport):
     """Print a rich table summary."""
     # --- Summary table ---
-    table = Table(title=f"SpiderShield Scan Report - {report.target}")
+    table = Table(title=f"SpiderScore (local) - {report.target}")
     table.add_column("Metric", style="bold")
     table.add_column("Value")
     table.add_column("Score", justify="right")
@@ -256,8 +249,8 @@ def _print_table(report: ScanReport):
 
     oc = _score_color(report.overall_score)
     table.add_row(
-        "[bold]Overall[/bold]",
-        f"Rating: [{oc}]{report.rating.value}[/{oc}]",
+        "[bold]SpiderScore[/bold]",
+        f"Grade: [{oc}]{report.rating.value}[/{oc}] [dim](local)[/dim]",
         f"[bold {oc}]{report.overall_score}/10[/bold {oc}]",
     )
 

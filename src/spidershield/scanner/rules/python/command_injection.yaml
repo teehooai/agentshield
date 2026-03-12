@@ -1,0 +1,49 @@
+rules:
+  - id: mcp-os-system-variable
+    patterns:
+      - pattern: os.system($CMD)
+      - pattern-not: os.system("...")
+      - pattern-not: os.system('...')
+    message: Command injection risk — os.system() called with non-literal argument
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: command_injection
+      severity_level: critical
+      fix: "Use subprocess with shell=False and explicit argument lists"
+
+  - id: mcp-os-popen-variable
+    patterns:
+      - pattern: os.popen($CMD)
+      - pattern-not: os.popen("...")
+      - pattern-not: os.popen('...')
+    message: Command injection risk — os.popen() called with non-literal argument
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: command_injection
+      severity_level: critical
+      fix: "Use subprocess.run with shell=False and explicit argument lists"
+
+  - id: mcp-subprocess-shell-true-variable
+    patterns:
+      - pattern: subprocess.$FUNC($CMD, ..., shell=True, ...)
+      - pattern-not: subprocess.$FUNC("...", ..., shell=True, ...)
+      - pattern-not: subprocess.$FUNC('...', ..., shell=True, ...)
+    message: Command injection risk — subprocess called with shell=True and non-literal command
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: command_injection
+      severity_level: critical
+      fix: "Use shell=False with an explicit list of arguments"
+
+  - id: mcp-subprocess-shell-true-fstring
+    pattern: subprocess.$FUNC(f"...", ..., shell=True, ...)
+    message: Command injection risk — subprocess called with f-string command and shell=True
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: command_injection
+      severity_level: critical
+      fix: "Use shell=False with an explicit list of arguments; never use f-strings with shell=True"

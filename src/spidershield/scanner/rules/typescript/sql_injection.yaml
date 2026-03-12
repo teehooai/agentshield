@@ -1,0 +1,20 @@
+rules:
+  - id: mcp-ts-query-template-literal
+    pattern: $DB.query(`...${...}...`, ...)
+    message: SQL injection — .query() called with template literal interpolation
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: ts_sql_injection
+      severity_level: critical
+      fix: "Use parameterized queries ($1, $2) instead of template literal interpolation"
+
+  - id: mcp-ts-execute-template-literal
+    pattern: $DB.execute(`...${...}...`, ...)
+    message: SQL injection — .execute() called with template literal interpolation
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: ts_sql_injection
+      severity_level: critical
+      fix: "Use parameterized queries ($1, $2) instead of template literal interpolation"

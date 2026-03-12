@@ -232,11 +232,20 @@ def _rewrite_llm(
     params = _extract_params(tool)
     siblings = [{"name": t["name"], "description": t.get("description", "")} for t in all_tools]
 
+    # v2 (E2): provide template draft as warm start + pre-diagnosed missing signals
+    from .quality_gate import diagnose_missing
+    template_draft = _rewrite_local(tool, all_tools)
+    template_score_val = _quick_score(template_draft)
+    missing = diagnose_missing(template_draft)
+
     system_prompt, user_prompt = build_rewrite_prompt(
         tool_name=tool_name,
         original_description=original_desc,
         parameters=params,
         sibling_tools=siblings,
+        template_draft=template_draft,
+        missing_signals=missing,
+        template_score=template_score_val,
     )
 
     # Attempt 1: initial generation
