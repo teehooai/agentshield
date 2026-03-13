@@ -430,7 +430,75 @@ Current status: **6/6 met**. Open-source readiness layer complete.
 
 ---
 
-## $12 Version History
+## $12 Gap Analysis: 8.7 → 9.8 (with Over-Engineering Filter)
+
+> Added rev7 (2026-03-13). Each improvement evaluated against:
+> - Does it fix a real problem users/contributors will hit?
+> - Is SpiderShield pre-1.0 — is this premature?
+> - Does it increase scanner accuracy on real MCP servers?
+
+### 12.1 KEEP — Real value, do now (P4)
+
+| ID | Item | Dimension | Justification |
+|----|------|-----------|---------------|
+| P4-1 | **Add 4 security patterns**: unsafe_path_resolution, async_injection, hardcoded_auth, basic_auth_in_url | Scanner Capability | Real MCP servers have these. `asyncio.create_subprocess_shell()` is common. `http://user:pass@host` appears in configs. Zero detection today = real blind spot. |
+| P4-2 | **Description scorer: add `has_return_docs`** | Scanner Capability | 90% of real tool descriptions lack "Returns:" docs. LLMs need this to make correct tool selections. Single most impactful scorer improvement. |
+| P4-3 | **Security pattern edge case tests** (30+ parametrized) | Testing | 17 `except Exception` catches + only 6 security pattern tests = fragile foundation. Each DANGEROUS_PATTERN entry needs at least 1 TP + 1 FP test. |
+| P4-4 | **CI cross-platform: add Windows** | Testing/Release | BUG-4 (`f.parts` path issue) was a cross-platform bug. Windows is where MCP devs actually work. macOS can wait. |
+| P4-5 | **E2E pipeline integration test** | Testing | No test exercises scan→score→grade full pipeline on a realistic server. One test with 10+ tools + mixed issues would catch regressions like BUG-4. |
+
+### 12.2 DEFER — Real value, but premature for pre-1.0 (P5)
+
+| ID | Item | Why defer |
+|----|------|-----------|
+| P5-1 | Error handling: `except Exception` → specific types | 17 catches all use `@_safe_record` or best-effort patterns. These are **intentionally broad** — dataset recording, audit logging, and fixer must never crash the core flow. Narrowing them risks regressions for zero user-visible benefit. Revisit at 1.0 when error UX matters. |
+| P5-2 | Policy YAML versioning (`version: "1.0"`) | Policy format is documented as stable in SUPPORT.md. Adding `version:` now forces all existing policies to add it. Breaking change for zero benefit until schema actually changes. Add when we need v2. |
+| P5-3 | Architecture checker: AST-based type hint detection | Current regex is "good enough." The difference between regex and AST detection is ~0.5 points on a 1.5-point sub-score. No user has reported inaccurate architecture scores. |
+| P5-4 | SDK integration guide (`docs/sdk-guide.md`) | Only 3 public API classes (SpiderGuard, DLPEngine, AuditLogger). Docstrings + README examples sufficient. Full SDK guide needed when API surface grows or when users ask for it. |
+| P5-5 | Version number single-source (`importlib.metadata`) | Works fine with manual sync today. Both places show `0.3.1`. This is a "nice to have" for 1.0 release process. |
+
+### 12.3 DROP — Over-engineering
+
+| ID | Item | Why it's over-engineering |
+|----|------|--------------------------|
+| ~~O-1~~ | `SpiderGuard.check()` input validation (max dict size) | Guard is an internal SDK, not a public HTTP API. Callers are LLM frameworks that already validate. Adding size limits solves a problem nobody has. |
+| ~~O-2~~ | `pyright --strict` mode | Current pyright passes with 0 errors. Strict mode adds 100+ `Unknown` warnings for third-party stubs. Hours of work for marginal type safety in a pre-1.0 tool. |
+| ~~O-3~~ | Performance baselines + regression CI | 7 perf benchmarks already exist. Adding JSON baselines + CI regression detection is CI infrastructure work that only matters at scale (>1000 users). |
+| ~~O-4~~ | Description scorer: `has_side_effects` + `has_exception_docs` + `specificity_score` | Adding 3 new scoring dimensions changes the scoring formula, breaks calibration, requires re-testing against golden set. `has_return_docs` alone gives 80% of the value. The other 3 are academic refinements. |
+| ~~O-5~~ | Automated changelog validation CI job | CHANGELOG.md is maintained by 1-2 maintainers. A CI job to verify it is overhead for a team this small. |
+| ~~O-6~~ | macOS CI matrix | No MCP-specific bugs on macOS. Add when first macOS-specific issue is reported. |
+| ~~O-7~~ | Concurrent guard thread-safety test | Guard uses no shared mutable state. Each `check()` call is pure. Testing concurrency on a stateless function is waste. |
+| ~~O-8~~ | `SpiderShieldError` structured exception hierarchy | Pre-1.0 tool with 2 maintainers. Custom exception classes are enterprise patterns. Python's stdlib exceptions are sufficient. |
+
+### 12.4 Score Projection
+
+```
+P4 items done (5 items, ~5 dev days):
+  Code Quality:    8.5 → 9.0  (BUG-4/5 fixed, pattern edge case tests)
+  Testing:         8.5 → 9.5  (E2E, pattern tests, Windows CI)
+  Scanner:         implicit    (4 new patterns, return_docs scorer)
+  Projected:       (9.0 + 9.0 + 9.5 + 9.0 + 8.5) / 5 = 9.0
+
+P5 items done (adds ~3 dev days at 1.0):
+  Code Quality:    9.0 → 9.5  (error handling, version sync)
+  Governance:      8.5 → 9.0  (policy versioning)
+  Projected:       (9.0 + 9.5 + 9.5 + 9.5 + 9.0) / 5 = 9.3
+
+Realistic ceiling for pre-1.0: ~9.3. Getting to 9.8 requires 1.0-level
+maturity (stable API, enterprise error handling, multi-platform CI matrix,
+comprehensive SDK docs) which is premature investment at current adoption.
+```
+
+### 12.5 Conclusion
+
+13 项 → **5 项 KEEP, 5 项 DEFER, 8 项 DROP**。
+
+实际目标：**8.7 → 9.0-9.3**（P4 完成后）。
+9.8 是 1.0 发布时的标准，现在追求它是 over-engineering。
+
+---
+
+## $13 Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
@@ -442,3 +510,4 @@ Current status: **6/6 met**. Open-source readiness layer complete.
 | **Obs 001A rev4** | **2026-03-13** | **P2+P3 batch: _extract_tools refactored into 4 per-language functions + orchestrator, CHANGELOG.md, CODE_OF_CONDUCT.md, guard tests expanded to 40, BANNED_LICENSES centralized. 745/745 tests pass. Contributor docs 4/4.** |
 | **Obs 001A rev5** | **2026-03-13** | **P3 complete: cli.py→commands/ subpackage (1,359→35 LOC orchestrator + 9 modules), .pre-commit-config.yaml, banned-license rationale doc, 7 perf benchmarks, classify_capabilities() collapsed. All P0-P3 items DONE. 752/752 tests pass. Score: B→A- (8.4/10).** |
 | **Obs 001A rev6** | **2026-03-13** | **Codex cross-review items complete: Makefile + `make verify-oss`, README 5-min quickstart, SUPPORT.md (version matrix + deprecation policy + stability guarantees), CODEOWNERS, issue/PR templates. OSS DoD 6/6 met. Final score: A- (8.7/10).** |
+| **Obs 001A rev7** | **2026-03-13** | **BUG-4 (path exclusion) + BUG-5 (validation false positive) fixed. secure-server upgraded to 10.0/10 reference. 8.7→9.8 gap analysis completed with over-engineering filter applied.** |
