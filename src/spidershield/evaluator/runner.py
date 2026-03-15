@@ -169,7 +169,7 @@ def _evaluate_server(
 
     # LLM mode: requires anthropic SDK + API key
     try:
-        import anthropic
+        import anthropic  # type: ignore[import-untyped]
 
         client = anthropic.Anthropic()
     except ImportError:
@@ -225,6 +225,7 @@ def _llm_select_with_retry(
         f"Which tool should be used? Reply with only the tool name."
     )
 
+    matched = ""
     for attempt in range(1 + max_retries):
         try:
             response = client.messages.create(

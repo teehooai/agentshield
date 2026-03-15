@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 
 
@@ -32,7 +33,7 @@ def quality_gate(
     original: str,
     rewritten: str,
     tool_name: str = "",
-    score_fn: callable | None = None,
+    score_fn: Callable[..., object] | None = None,
 ) -> GateResult:
     """Return the rewrite only if it passes all quality checks.
 

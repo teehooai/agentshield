@@ -106,7 +106,7 @@ def scan_config(
 def _load_config(config_path: Path) -> dict | None:
     """Load config (JSON5 format)."""
     try:
-        import json5
+        import json5  # type: ignore[import-untyped]
         return json5.loads(config_path.read_text(encoding="utf-8"))
     except Exception:
         # Fallback: try standard json (works if no JSON5 features used)

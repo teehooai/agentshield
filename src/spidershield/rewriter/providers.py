@@ -16,7 +16,7 @@ class AnthropicProvider:
     """Claude via Anthropic API."""
 
     def __init__(self, model: str = "claude-sonnet-4-20250514"):
-        import anthropic
+        import anthropic  # type: ignore[import-untyped]
 
         self.client = anthropic.Anthropic()
         self.model = model
@@ -36,7 +36,7 @@ class OpenAIProvider:
     """GPT models via OpenAI API."""
 
     def __init__(self, model: str = "gpt-4o"):
-        import openai
+        import openai  # type: ignore[import-untyped]
 
         self.client = openai.OpenAI()
         self.model = model
@@ -58,14 +58,14 @@ class GeminiProvider:
     """Gemini via Google Generative AI API."""
 
     def __init__(self, model: str = "gemini-2.0-flash"):
-        import google.generativeai as genai
+        import google.generativeai as genai  # type: ignore[import-untyped]
 
         api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(model)
 
     def complete(self, system: str, user: str, max_tokens: int = 500) -> str:
-        import google.generativeai as genai
+        import google.generativeai as genai  # type: ignore[import-untyped]
 
         response = self.model.generate_content(
             f"{system}\n\n---\n\n{user}",

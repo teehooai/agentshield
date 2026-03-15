@@ -47,7 +47,7 @@ def fix_findings(
 
     # Load config
     try:
-        import json5
+        import json5  # type: ignore[import-untyped]
         config = json5.loads(config_path.read_text(encoding="utf-8"))
     except Exception:
         import json
@@ -144,7 +144,7 @@ def _fix_weak_token(config: dict, dry_run: bool) -> str:
     return f"Replaced weak token with strong token ({token[:8]}...)"
 
 
-def _fix_move_keys_to_env(config: dict, agent_dir: Path, dry_run: bool) -> str:
+def _fix_move_keys_to_env(config: dict, agent_dir: Path, dry_run: bool) -> str | None:
     import re
 
     config_str = str(config)

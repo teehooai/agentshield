@@ -11,7 +11,6 @@ Covers the full LLM rewrite pipeline without requiring real API keys:
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -22,7 +21,6 @@ from spidershield.rewriter.prompt import REWRITE_SYSTEM_PROMPT, build_rewrite_pr
 from spidershield.rewriter.providers import detect_provider
 from spidershield.rewriter.quality_gate import _quick_score, diagnose_missing, quality_gate
 from spidershield.rewriter.runner import _rewrite_llm, _rewrite_local
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -82,6 +80,7 @@ def sibling_tools() -> list[dict]:
 
 class TestProviderDetection:
     def test_explicit_claude(self) -> None:
+        pytest.importorskip("anthropic", reason="anthropic package not installed")
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-test"}, clear=False):
             p = detect_provider(provider="claude")
             assert p is not None
@@ -106,6 +105,7 @@ class TestProviderDetection:
             assert p is None
 
     def test_auto_detect_anthropic(self) -> None:
+        pytest.importorskip("anthropic", reason="anthropic package not installed")
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-ant-test"}, clear=False):
             p = detect_provider()
             assert p is not None
@@ -126,6 +126,7 @@ class TestProviderDetection:
             assert "Gemini" in type(p).__name__
 
     def test_custom_model(self) -> None:
+        pytest.importorskip("anthropic", reason="anthropic package not installed")
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-test"}, clear=False):
             p = detect_provider(provider="claude", model="claude-haiku-4-5-20251001")
             assert p.model == "claude-haiku-4-5-20251001"
@@ -226,7 +227,7 @@ class TestLLMRewritePipeline:
         # First call returns mediocre, second returns perfect
         provider.complete.side_effect = [MEDIOCRE_REWRITE, PERFECT_REWRITE]
 
-        result = _rewrite_llm(
+        _rewrite_llm(
             sample_tool, sibling_tools, provider,
             use_cache=False, semantic_verify=False,
             min_score=9.0, max_retries=2,

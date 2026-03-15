@@ -84,7 +84,7 @@ class StandaloneGuard(AdapterBase):
             stdin_thread.start()
 
             # Main thread: scan and relay subprocess stdout
-            self._scan_and_relay(proc.stdout, client_out)
+            self._scan_and_relay(proc.stdout, client_out)  # type: ignore[arg-type]
 
         except (KeyboardInterrupt, BrokenPipeError):
             pass

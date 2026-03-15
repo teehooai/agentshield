@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from spidershield.scanner.runner import run_scan_report
 
 

@@ -92,7 +92,8 @@ class MCPProxyGuard(AdapterBase):
             relay_thread.start()
 
             # Main thread: relay client stdin → (guard) → server stdin
-            self._relay_client_to_server(client_in, proc.stdin, client_out)
+            assert proc.stdin is not None
+            self._relay_client_to_server(client_in, proc.stdin, client_out)  # type: ignore[arg-type]
 
         except (KeyboardInterrupt, BrokenPipeError):
             pass

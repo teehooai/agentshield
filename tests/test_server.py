@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -25,7 +25,6 @@ from spidershield.server import (
     call_tool,
     list_tools,
 )
-
 
 # ---------------------------------------------------------------------------
 # Tool listing
@@ -229,6 +228,7 @@ class TestServerApp:
 
     def test_main_is_async(self) -> None:
         import inspect
+
         from spidershield.server import main
         assert inspect.iscoroutinefunction(main)
 

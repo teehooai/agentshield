@@ -157,7 +157,7 @@ def _parse_semgrep_output(raw: str, repo_root: Path) -> list[SecurityIssue]:
 
         line: int = result.get("start", {}).get("line", 0)
         message: str = result.get("extra", {}).get("message", "")
-        fix: str = _FIX_HINTS.get(short_id, meta.get("fix", ""))
+        fix: str = _FIX_HINTS.get(short_id, str(meta.get("fix", "")))
 
         key = (rel_path, line, category)
         if key in seen:
@@ -210,8 +210,10 @@ def run_semgrep(path: Path, timeout: int = 60) -> list[SecurityIssue]:
     Returns list of SecurityIssue objects (empty if Semgrep fails/absent).
     Only categories in SEMGREP_COVERED_CATEGORIES are returned.
     """
-    if not SEMGREP_AVAILABLE:
+    if not SEMGREP_AVAILABLE or _SEMGREP_BIN is None:
         return []
+
+    semgrep_bin: str = _SEMGREP_BIN  # local binding for type narrowing
 
     if not _RULES_DIR.exists():
         logger.warning("Semgrep rules directory not found: %s", _RULES_DIR)
@@ -220,14 +222,14 @@ def run_semgrep(path: Path, timeout: int = 60) -> list[SecurityIssue]:
     # Ensure semgrep's own directory is on PATH so its pysemgrep helper can be found
     import os
     env = os.environ.copy()
-    semgrep_dir = str(Path(_SEMGREP_BIN).parent)
+    semgrep_dir = str(Path(semgrep_bin).parent)
     if semgrep_dir not in env.get("PATH", ""):
         env["PATH"] = semgrep_dir + os.pathsep + env.get("PATH", "")
 
     try:
         result = subprocess.run(
             [
-                _SEMGREP_BIN,
+                semgrep_bin,
                 "--json",
                 "--quiet",
                 "--no-git-ignore",

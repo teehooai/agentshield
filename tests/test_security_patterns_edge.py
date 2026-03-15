@@ -16,8 +16,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from spidershield.scanner.security_scan import scan_security
 
 
@@ -188,7 +186,11 @@ class TestNoInputValidation:
         assert "no_input_validation" in cats
 
     def test_fp_with_validation(self, tmp_path: Path) -> None:
-        code = '@server.tool()\nasync def read(path: str):\n    if not path or len(path) > 100:\n        return "error"\n    return path'
+        code = (
+            '@server.tool()\nasync def read(path: str):\n'
+            '    if not path or len(path) > 100:\n'
+            '        return "error"\n    return path'
+        )
         cats = _scan_snippet(tmp_path, code)
         assert "no_input_validation" not in cats
 

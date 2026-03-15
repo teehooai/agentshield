@@ -187,6 +187,7 @@ def _fake_semgrep_json(repo: Path) -> str:
 def test_run_semgrep_when_available(tmp_path: Path):
     with (
         patch("spidershield.scanner.semgrep_scan.SEMGREP_AVAILABLE", True),
+        patch("spidershield.scanner.semgrep_scan._SEMGREP_BIN", "/usr/bin/semgrep"),
         patch("spidershield.scanner.semgrep_scan.subprocess.run") as mock_run,
     ):
         mock_run.return_value = MagicMock(
@@ -211,6 +212,7 @@ def test_run_semgrep_timeout_returns_empty(tmp_path: Path):
 
     with (
         patch("spidershield.scanner.semgrep_scan.SEMGREP_AVAILABLE", True),
+        patch("spidershield.scanner.semgrep_scan._SEMGREP_BIN", "/usr/bin/semgrep"),
         patch(
             "spidershield.scanner.semgrep_scan.subprocess.run",
             side_effect=sp.TimeoutExpired("semgrep", 60),
@@ -223,6 +225,7 @@ def test_run_semgrep_timeout_returns_empty(tmp_path: Path):
 def test_run_semgrep_error_exit_returns_empty(tmp_path: Path):
     with (
         patch("spidershield.scanner.semgrep_scan.SEMGREP_AVAILABLE", True),
+        patch("spidershield.scanner.semgrep_scan._SEMGREP_BIN", "/usr/bin/semgrep"),
         patch("spidershield.scanner.semgrep_scan.subprocess.run") as mock_run,
     ):
         mock_run.return_value = MagicMock(returncode=2, stdout="", stderr="fatal error")

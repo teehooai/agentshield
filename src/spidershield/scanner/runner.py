@@ -168,8 +168,8 @@ def run_scan_report(target: str, tools_json: str | None = None) -> ScanReport:
         recommendations=recommendations,
     )
     # Attach scan metadata for dataset recording (not serialized in report)
-    report._scan_duration_ms = scan_duration_ms
-    report._pattern_set_hash = _compute_pattern_set_hash()
+    object.__setattr__(report, "_scan_duration_ms", scan_duration_ms)
+    object.__setattr__(report, "_pattern_set_hash", _compute_pattern_set_hash())
     return report
 
 
