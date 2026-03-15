@@ -64,6 +64,28 @@ exclude = ["sdk_selfcheck.py"]
 select = ["E", "F", "I", "N", "W", "UP"]
 ignore = ["E402"]
 
+[tool.coverage.run]
+source = ["spidershield"]
+omit = [
+    "src/spidershield/spiderrating.py",         # spiderrating formatter — integration-only
+    "src/spidershield/rewriter/providers.py",    # requires API keys
+    "src/spidershield/rewriter/runner.py",       # LLM API — tested via mocks in test_llm_integration
+    "src/spidershield/scanner/license_check.py", # license detection — platform-dependent
+    "src/spidershield/agent/fixer.py",           # agent fix flow — requires LLM + subprocess
+    "src/spidershield/agent/report.py",          # agent report — requires LLM
+    "src/spidershield/evaluator/runner.py",      # evaluator — requires MCP subprocess
+    "src/spidershield/adapters/mcp_proxy.py",    # MCP proxy adapter — requires running server
+    "src/spidershield/commands/*.py",            # CLI commands — tested via test_cli_integration
+    "src/spidershield/__main__.py",              # entry point
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__",
+    "if TYPE_CHECKING",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
