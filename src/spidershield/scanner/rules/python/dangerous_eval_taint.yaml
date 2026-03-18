@@ -1,0 +1,66 @@
+rules:
+  - id: mcp-dangerous-eval-taint
+    mode: taint
+    pattern-sources:
+      # MCP tool handler str parameters are user-controlled input
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $PARAM: str, ...):
+                  ...
+          - focus-metavariable: $PARAM
+      # Also catch untyped parameters in decorated MCP handlers
+      - patterns:
+          - pattern-inside: |
+              @$DECORATOR.tool(...)
+              def $FUNC(..., $PARAM, ...):
+                  ...
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              @$DECORATOR.tool
+              def $FUNC(..., $PARAM, ...):
+                  ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: eval(...)
+      - pattern: exec(...)
+    pattern-sanitizers:
+      # Safe alternatives that parse data without code execution
+      - pattern: ast.literal_eval(...)
+      - pattern: json.loads(...)
+      - pattern: int(...)
+      - pattern: float(...)
+    message: >
+      User-controlled string '$PARAM' flows into eval()/exec() — arbitrary code
+      execution risk. Use ast.literal_eval for data parsing or refactor to avoid eval.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: dangerous_eval
+      severity_level: critical
+      confidence: taint
+      fix: "Use ast.literal_eval for data parsing, or avoid eval/exec entirely"
+
+  - id: mcp-dangerous-exec-taint
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $PARAM: str, ...):
+                  ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: exec(...)
+    pattern-sanitizers:
+      - pattern: ast.literal_eval(...)
+      - pattern: json.loads(...)
+    message: >
+      User-controlled string '$PARAM' flows into exec() — code injection risk.
+      Refactor to use explicit function dispatch instead.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: dangerous_eval
+      severity_level: critical
+      confidence: taint
+      fix: "Avoid exec(); refactor to use explicit function dispatch"

@@ -1,0 +1,47 @@
+rules:
+  - id: mcp-sql-execute-taint
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $PARAM: str, ...):
+                  ...
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              @$DECORATOR.tool(...)
+              def $FUNC(..., $PARAM, ...):
+                  ...
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              @$DECORATOR.tool
+              def $FUNC(..., $PARAM, ...):
+                  ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      # Single-arg execute() — no parameterization, tainted query goes directly
+      - patterns:
+          - pattern: $CURSOR.execute($QUERY)
+          - focus-metavariable: $QUERY
+      - patterns:
+          - pattern: $CURSOR.executemany($QUERY, ...)
+          - focus-metavariable: $QUERY
+    pattern-sanitizers:
+      # Parameterized form: execute(query, params) — the 2nd arg binds values
+      # Semgrep models this as: if the tainted value is used as $QUERY and a
+      # second argument $PARAMS exists, the sink is sanitized.
+      - patterns:
+          - pattern: $CURSOR.execute($QUERY, $PARAMS)
+          - focus-metavariable: $QUERY
+    message: >
+      User-controlled string '$PARAM' flows into SQL execute() without
+      parameterization — SQL injection risk. Use execute(query, params) with
+      placeholder syntax (?, %s, :name).
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: sql_injection
+      severity_level: critical
+      confidence: taint
+      fix: "Use parameterized queries: cursor.execute(query, (param,))"

@@ -1,0 +1,39 @@
+rules:
+  - id: mcp-ts-eval-taint
+    mode: taint
+    pattern-sources:
+      # MCP tool handler parameters (TypeScript)
+      - patterns:
+          - pattern-inside: |
+              function $FUNC(..., $PARAM: string, ...) {
+                ...
+              }
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              ($PARAM: string) => { ... }
+          - focus-metavariable: $PARAM
+      # Object destructuring from tool arguments
+      - patterns:
+          - pattern-inside: |
+              const { $PARAM }: { $PARAM: string } = $ARGS
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+      - pattern: vm.runInNewContext(...)
+      - pattern: vm.runInThisContext(...)
+    pattern-sanitizers:
+      - pattern: JSON.parse(...)
+      - pattern: parseInt(...)
+      - pattern: parseFloat(...)
+    message: >
+      User-controlled string '$PARAM' flows into eval()/Function()/vm — code
+      injection risk. Use JSON.parse or structured data parsing instead.
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: ts_unsafe_eval
+      severity_level: critical
+      confidence: taint
+      fix: "Avoid eval and new Function(); use JSON.parse or structured parsing"

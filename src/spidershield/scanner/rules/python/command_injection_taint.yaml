@@ -1,0 +1,72 @@
+rules:
+  - id: mcp-subprocess-shell-taint
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $PARAM: str, ...):
+                  ...
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              @$DECORATOR.tool(...)
+              def $FUNC(..., $PARAM, ...):
+                  ...
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              @$DECORATOR.tool
+              def $FUNC(..., $PARAM, ...):
+                  ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      # subprocess with shell=True and tainted command
+      - patterns:
+          - pattern: subprocess.$FUNC($CMD, ..., shell=True, ...)
+          - focus-metavariable: $CMD
+      # os.system / os.popen with tainted argument
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+      # asyncio shell with tainted argument
+      - pattern: asyncio.create_subprocess_shell(...)
+    pattern-sanitizers:
+      # shlex.quote escapes shell metacharacters — reduces risk
+      - pattern: shlex.quote(...)
+      # subprocess with list-form (shell=False) — not a sink when used this way
+      - patterns:
+          - pattern: subprocess.$FUNC([$CMD, ...], ...)
+          - pattern-not: subprocess.$FUNC($CMD, ..., shell=True, ...)
+    message: >
+      User-controlled string '$PARAM' flows into a shell command — command
+      injection risk. Use subprocess with shell=False and an explicit argument list.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: command_injection
+      severity_level: critical
+      confidence: taint
+      fix: "Use subprocess with shell=False and explicit argument lists"
+
+  - id: mcp-os-system-taint
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-inside: |
+              def $FUNC(..., $PARAM: str, ...):
+                  ...
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+    pattern-sanitizers:
+      - pattern: shlex.quote(...)
+    message: >
+      User-controlled string '$PARAM' flows into os.system()/os.popen() — shell
+      command injection risk. Use subprocess.run with shell=False.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: command_injection
+      severity_level: critical
+      confidence: taint
+      fix: "Use subprocess with shell=False and explicit argument lists"

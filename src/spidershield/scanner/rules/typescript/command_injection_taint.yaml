@@ -1,0 +1,46 @@
+rules:
+  - id: mcp-ts-child-process-taint
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-inside: |
+              function $FUNC(..., $PARAM: string, ...) {
+                ...
+              }
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              ($PARAM: string) => { ... }
+          - focus-metavariable: $PARAM
+      - patterns:
+          - pattern-inside: |
+              const { $PARAM }: { $PARAM: string } = $ARGS
+          - focus-metavariable: $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern: child_process.exec($CMD, ...)
+          - focus-metavariable: $CMD
+      - patterns:
+          - pattern: child_process.execSync($CMD, ...)
+          - focus-metavariable: $CMD
+      - patterns:
+          - pattern: exec($CMD, ...)
+          - focus-metavariable: $CMD
+      - patterns:
+          - pattern: execSync($CMD, ...)
+          - focus-metavariable: $CMD
+    pattern-sanitizers:
+      # execFile / spawn with explicit array — not a shell string
+      - pattern: child_process.execFile(...)
+      - pattern: child_process.spawn(...)
+      - pattern: spawnSync(...)
+    message: >
+      User-controlled string '$PARAM' flows into child_process.exec/execSync —
+      shell command injection risk. Use execFile or spawn with explicit argument arrays.
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: child_process_injection
+      severity_level: critical
+      confidence: taint
+      fix: "Use child_process.execFile or spawn with explicit argument arrays"

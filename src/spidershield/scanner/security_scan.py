@@ -24,9 +24,12 @@ from .semgrep_scan import (
 DANGEROUS_PATTERNS = {
     "path_traversal": {
         "patterns": [
+            # os.path.join with literal ".." is an unambiguous traversal indicator.
+            # Broader open([^)]*\+) and Path([^)]*\+) patterns removed (P3 2026-03-17)
+            # — they generated 3+ FPs per repo (constant-concat open calls).
+            # open(f"...{var}...") and Path(var).read_text() are covered by the more
+            # precise `unsafe_path_resolution` category instead.
             r"os\.path\.join\([^)]*\.\.",
-            r"open\([^)]*\+",
-            r'Path\([^)]*\+',
         ],
         "severity": "high",
         "description": "Potential path traversal -- user input may escape intended directory",
@@ -116,11 +119,18 @@ DANGEROUS_PATTERNS = {
     },
     "ssrf": {
         "patterns": [
-            r"requests\.(?:get|post|put|delete)\([^)]*(?:url|endpoint)",
-            r"httpx\.(?:get|post|put|delete)\([^)]*(?:url|endpoint)",
-            # fetch() is too broad — it's a standard API in JS/TS. Only flag Python
-            # urllib/requests patterns. JS/TS fetch() is covered by manual review
-            # since agent frameworks legitimately fetch user-provided URLs.
+            # Only flag when URL contains clear user-input signal (P3 2026-03-17).
+            # Old patterns `requests.get([^)]*(?:url|endpoint))` caused 4+ FPs per repo
+            # (any config variable named `url` or `endpoint` was flagged).
+            # P1 (taint rules) will handle `requests.get(url)` where url flows from
+            # MCP handler parameters — not solvable with regex alone.
+            #
+            # f-string interpolation in URL (strongest signal — variable in URL template)
+            r"""requests\.(?:get|post|put|delete)\(\s*f["'][^"']*\{""",
+            # String concat where right operand is a variable (not a string literal)
+            r"""requests\.(?:get|post|put|delete)\([^"'()]*\+\s*(?!["'])[a-zA-Z_]""",
+            r"""httpx\.(?:get|post|put|delete)\(\s*f["'][^"']*\{""",
+            r"""httpx\.(?:get|post|put|delete)\([^"'()]*\+\s*(?!["'])[a-zA-Z_]""",
         ],
         "severity": "medium",
         "description": "Potential SSRF -- unrestricted network requests with user-controlled URLs",
@@ -329,6 +339,125 @@ def _is_under(file_path: Path, dir_path: Path) -> bool:
         return False
 
 
+# L3 Phase 1b: safe-pattern allowlist → confidence="low"
+# When any of these patterns appear in the *same file* as a finding, the
+# finding is downgraded to confidence="low" because a defensive pattern is
+# present. bug_hunter skips low-confidence issues, keeping noise out of the
+# clone-verify loop. The finding is still recorded for audit purposes.
+_SAFE_PATTERNS: dict[str, list[re.Pattern[str]]] = {
+    "unsafe_deserialization": [
+        re.compile(r"yaml\.load\([^,)]+,\s*Loader\s*=\s*yaml\.SafeLoader"),
+        re.compile(r"yaml\.safe_load\("),
+        # pickle on a local file (open/Path) is not network-sourced (P4: from FP_RULES)
+        re.compile(r"pickle\.loads?\(\s*(?:open|Path)"),
+        # Pattern in a security scanner's blocklist/denylist (not actual usage)
+        re.compile(r"(?:BLOCKED_|DANGEROUS_|FORBIDDEN_|blacklist|blocklist).*(?:pickle|eval|exec)"),
+    ],
+    "command_injection": [
+        re.compile(r"shlex\.quote\("),
+        re.compile(r"subprocess\.\w+\(\s*\["),  # list-form subprocess (no shell=True)
+        # shell=True guarded by Windows platform check (npm/nvm pattern) (P4: from FP_RULES)
+        re.compile(r'platform\.system\(\)\s*==\s*["\']Windows["\']'),
+        # Kernel PID is not user-controllable input (P4: from FP_RULES)
+        re.compile(r"(?:process\.ppid|process\.pid|os\.getpid|os\.getppid)"),
+    ],
+    "sql_injection": [
+        re.compile(r"\.execute\(\s*\w+\s*,\s*[\[\(]"),   # execute(q, [params])
+        re.compile(r"\.execute\(\s*\w+\s*,\s*\{"),        # execute(q, {k: v})
+        # ? placeholders assembled with join() — parameterized query (P4: from FP_RULES)
+        # Matches: join("?") and join(["?" ...]) forms
+        re.compile(r"placeholders\s*=.*join\(\s*\[?[\"']\?"),
+    ],
+    "timing_attack_comparison": [
+        re.compile(r"hmac\.compare_digest\("),
+        re.compile(r"secrets\.compare_digest\("),
+    ],
+    "path_traversal": [
+        re.compile(r"\.resolve\(\).*is_relative_to\("),
+        re.compile(r"os\.path\.realpath\("),
+    ],
+    "dangerous_eval": [
+        re.compile(r"ast\.literal_eval\("),
+        # eval on config/settings/env — not user MCP input (P4: from FP_RULES)
+        re.compile(r"eval\(\s*(?:config|settings|ENV|os\.environ)"),
+        # File is a security scanner/linter — eval pattern appears as a regex
+        # string literal, not as executable code (e.g. r"eval\(", "eval(")
+        # Catches repos like mini_claude whose scanner lists dangerous patterns.
+        re.compile(r"""[rR]['"][^'"]*eval\s*\\?\("""),
+        # File defines scanner rule sets (DANGEROUS_PATTERNS, FP_RULES, etc.)
+        # These files describe eval patterns but don't execute them.
+        re.compile(r"DANGEROUS_PATTERNS|FP_RULES|_SAFE_PATTERNS|PATTERN_LIST"),
+    ],
+    "hardcoded_credential": [
+        re.compile(r"os\.environ\.get\("),
+        re.compile(r"\bgetenv\("),
+    ],
+}
+
+
+def _has_safe_pattern(category: str, file_content: str) -> bool:
+    """Return True if *file_content* contains a defensive pattern for *category*.
+
+    Used to downgrade regex findings to confidence="low" when a mitigation
+    exists in the same file (L3 Phase 1b).
+    """
+    for pat in _SAFE_PATTERNS.get(category, []):
+        if pat.search(file_content):
+            return True
+    return False
+
+
+# L2: classify file paths NOT already excluded by _EXCLUDE_DIRS into a context
+# bucket so downstream filters (bug_hunter L2) can skip non-runtime findings.
+# Only covers the gap paths that _EXCLUDE_DIRS misses (filename patterns and
+# sub-directory paths like bin/start*, electron/main/platform/, etc.).
+_CTX_CLI = re.compile(
+    r"(?:^|/)bin/(?:start|cli|run|server)[^/]*"       # bin/start.sh, bin/cli.js …
+    r"|(?:^|/)cli/src/utils/"                          # cli/src/utils/
+    # Files whose name implies shell/terminal is the product's core feature.
+    # (P4: mirrors bug_hunter FP_RULES "feature_is_shell" condition)
+    r"|(?:^|/)(?:terminal|commander|shell_wrapper|console_runner)[^/]*\.[jt]sx?$",
+    re.IGNORECASE,
+)
+_CTX_BUILD = re.compile(
+    r"(?:^|/)electron/main/platform/"              # Electron platform bootstrap
+    r"|(?:^|/)ingest/"                             # ETL / ingestion scripts
+    r"|(?:^|/)release\.[jt]sx?$"                  # release.ts / release.js
+    r"|(?:^|/)download[_-][^/]*\.[jt]sx?$",       # download-*.ts / download-*.js
+    re.IGNORECASE,
+)
+_CTX_CTF = re.compile(
+    r"(?:^|/)(?:challenges|ctf|hackable)/"         # challenge dirs
+    r"|damn[_-]?vulnerable",                       # DVMCP-style repos
+    re.IGNORECASE,
+)
+_CTX_BENCHMARK = re.compile(
+    r"(?:^|/)(?:eval|evals|synthesis|test[_-]evals)/",
+    re.IGNORECASE,
+)
+
+
+def _classify_file_context(rel_path: str) -> str:
+    """Return the file context bucket for *rel_path*.
+
+    Buckets: 'runtime' | 'build' | 'test' | 'cli' | 'benchmark' | 'ctf'
+
+    Only files that survived _EXCLUDE_DIRS (i.e. not already excluded) reach
+    this function, so 'test', 'scripts', 'migrations' etc. are rare here.
+    The function handles the gap paths that _EXCLUDE_DIRS does not cover.
+    """
+    norm = rel_path.replace("\\", "/")
+    if _CTX_CTF.search(norm):
+        return "ctf"
+    if _CTX_BENCHMARK.search(norm):
+        return "benchmark"
+    if _CTX_CLI.search(norm):
+        return "cli"
+    if _CTX_BUILD.search(norm):
+        return "build"
+    return "runtime"
+
+
 _EXCLUDE_DIRS = frozenset({
     "node_modules", "__pycache__", "__tests__", "tests", "test",
     ".git", "dist", "build", ".venv", "venv", ".tox",
@@ -482,6 +611,10 @@ def scan_security(path: Path) -> tuple[float, list[SecurityIssue]]:
             i for i in semgrep_issues
             if not Path(i.file).parts or Path(i.file).parts[0] in scoped_dirs
         ]
+    # L2: apply file_context to Semgrep issues (confidence already set to "high"
+    # by semgrep_scan.py; file_context classification lives here to keep it DRY).
+    for issue in semgrep_issues:
+        issue.file_context = _classify_file_context(issue.file)
     issues.extend(semgrep_issues)
 
     for source_file in source_files:
@@ -517,6 +650,13 @@ def scan_security(path: Path) -> tuple[float, list[SecurityIssue]]:
                         func_body = _get_function_body(content, match.end())
                         if _has_validation(func_body):
                             continue
+                    # L3 Phase 1b: downgrade to "low" when a safe/defensive pattern
+                    # exists in the same file (e.g. shlex.quote, SafeLoader, hmac).
+                    conf = (
+                        "low"
+                        if _has_safe_pattern(category, content)
+                        else "medium"
+                    )
                     issues.append(
                         SecurityIssue(
                             severity=config["severity"],
@@ -525,6 +665,8 @@ def scan_security(path: Path) -> tuple[float, list[SecurityIssue]]:
                             line=line_num,
                             description=config["description"],
                             fix_suggestion=config["fix"],
+                            file_context=_classify_file_context(rel_path),
+                            confidence=conf,
                         )
                     )
 
@@ -536,6 +678,11 @@ def scan_security(path: Path) -> tuple[float, list[SecurityIssue]]:
                 for pattern in config["patterns"]:
                     for match in re.finditer(pattern, content):
                         line_num = content[:match.start()].count("\n") + 1
+                        conf = (
+                            "low"
+                            if _has_safe_pattern(category, content)
+                            else "medium"
+                        )
                         issues.append(
                             SecurityIssue(
                                 severity=config["severity"],
@@ -544,6 +691,8 @@ def scan_security(path: Path) -> tuple[float, list[SecurityIssue]]:
                                 line=line_num,
                                 description=config["description"],
                                 fix_suggestion=config["fix"],
+                                file_context=_classify_file_context(rel_path),
+                                confidence=conf,
                             )
                         )
 

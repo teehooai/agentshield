@@ -49,7 +49,11 @@ def _find_semgrep() -> str | None:
         # getusersitepackages() → ...Python3xx/site-packages → sibling Scripts
         user_site = Path(site.getusersitepackages())
         candidate_dirs.append(user_site.parent / "Scripts")  # Windows
-        candidate_dirs.append(user_site.parent / "bin")      # Unix
+        candidate_dirs.append(user_site.parent / "bin")      # Unix (venv)
+        # macOS pip user install: site-packages is lib/python/site-packages,
+        # but scripts are installed 3 levels up at Library/Python/3.x/bin
+        if len(user_site.parents) >= 3:
+            candidate_dirs.append(user_site.parents[2] / "bin")  # macOS user bin
     except (AttributeError, TypeError):
         pass
 
@@ -114,6 +118,14 @@ _FIX_HINTS: dict[str, str] = {
     "mcp-ts-exec-sync-variable": "Use spawnSync with explicit argument arrays instead of execSync",
     "mcp-ts-query-template-literal": "Use parameterized queries ($1, $2) instead of template literal interpolation",
     "mcp-ts-execute-template-literal": "Use parameterized queries ($1, $2) instead of template literal interpolation",
+    # Taint rule fix hints (P1 2026-03-17)
+    "mcp-dangerous-eval-taint": "Use ast.literal_eval for data parsing, or avoid eval entirely",
+    "mcp-dangerous-exec-taint": "Avoid exec(); refactor to use explicit function dispatch",
+    "mcp-subprocess-shell-taint": "Use subprocess with shell=False and explicit argument lists",
+    "mcp-os-system-taint": "Use subprocess.run with shell=False and explicit argument lists",
+    "mcp-sql-execute-taint": "Use parameterized queries: cursor.execute(query, (param,))",
+    "mcp-ts-eval-taint": "Avoid eval and new Function(); use JSON.parse or structured parsing",
+    "mcp-ts-child-process-taint": "Use child_process.execFile or spawn with explicit argument arrays",
 }
 
 
@@ -172,6 +184,10 @@ def _parse_semgrep_output(raw: str, repo_root: Path) -> list[SecurityIssue]:
                 line=line,
                 description=message,
                 fix_suggestion=fix,
+                # Semgrep uses AST-level analysis — higher confidence than regex.
+                # file_context is applied by scan_security() after all issues
+                # are collected so the classification logic stays in one place.
+                confidence="high",
             )
         )
 
@@ -200,6 +216,14 @@ def _rule_id_to_category(rule_id: str) -> str:
         "mcp-ts-exec-sync-variable": "child_process_injection",
         "mcp-ts-query-template-literal": "ts_sql_injection",
         "mcp-ts-execute-template-literal": "ts_sql_injection",
+        # Taint rules (P1 2026-03-17) — same categories, AST + data-flow precision
+        "mcp-dangerous-eval-taint": "dangerous_eval",
+        "mcp-dangerous-exec-taint": "dangerous_eval",
+        "mcp-subprocess-shell-taint": "command_injection",
+        "mcp-os-system-taint": "command_injection",
+        "mcp-sql-execute-taint": "sql_injection",
+        "mcp-ts-eval-taint": "ts_unsafe_eval",
+        "mcp-ts-child-process-taint": "child_process_injection",
     }
     return mapping.get(rule_id, "")
 
